@@ -2,10 +2,17 @@
 ## 2018.5.13 Log
 - Finished: Basic structure of e1000 driver; Transmit packages;
 - Bugs: Receive packages error(CRC Error); Do not trigger E1000_DEBUG filter info;
+
 ## Reference
 - [MIT 6.828 Lab6](https://pdos.csail.mit.edu/6.828/2011/labs/lab6/)
 - [E1000 Datasheet](https://pdos.csail.mit.edu/6.828/2011/readings/hardware/8254x_GBe_SDM.pdf)
 - [E1000 Definitions](https://pdos.csail.mit.edu/6.828/2011/labs/lab6/e1000_hw.h)
+
+## Other possibly helping git repos
+- [RickWei/jos_lab](https://github.com/RickWei/jos_lab)
+- [vibhorvatsa/xv6-networking-stack](https://github.com/vibhorvatsa/xv6-networking-stack)
+- [s-shin/xv6-network](https://github.com/s-shin/xv6-network)
+
 ## Old Readme
 xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
 Version 6 (v6).  xv6 loosely follows the structure and style of v6,
