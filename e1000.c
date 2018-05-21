@@ -367,7 +367,7 @@ void e1000_send(void *driver, uint8_t *pkt, uint16_t length)
 
   memmove((the_e100->tx[i].p), pkt, length);
 
-  the_e100->tx[i].tbd.tb_addr = V2P(the_e100.tx[i].p);
+  the_e100->tx[i].tbd.tb_addr = V2P(the_e100->tx[i].p);
   the_e100->tx[i].tbd.tb_size = length & E100_SIZE_MASK;
   the_e100->tx[i].tcb.cb_status = 0;
   the_e100->tx[i].tcb.cb_command = E100_CB_COMMAND_XMIT |
