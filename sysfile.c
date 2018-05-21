@@ -495,7 +495,7 @@ sys_checknic(void)
     if((TAIL+1)%128==HEAD)
       continue;
     TAIL=(TAIL+1)%128;
-    while(!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_DD )||!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_EOP)){}
+    //while(!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_DD )||!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_EOP)){}
     cprintf("TAIL : %x\n",TAIL);
     cprintf("HEAD : %x\n",HEAD);
     struct e1000_rbd* rbdp=e1000p->rbd[TAIL];
