@@ -272,48 +272,6 @@
 #include "nic.h"
 #include "memlayout.h"
 
-uint8_t e100_irq;
-
-#define E100_TX_SLOTS     64
-#define E100_RX_SLOTS     64
-
-#define E100_NULL     0xffffffff
-#define E100_SIZE_MASK      0x3fff  // mask out status/control bits
-
-#define E100_CSR_SCB_STATACK    0x01  // scb_statack (1 byte)
-#define E100_CSR_SCB_COMMAND    0x02  // scb_command (1 byte)
-#define E100_CSR_SCB_GENERAL    0x04  // scb_general (4 bytes)
-#define E100_CSR_PORT     0x08  // port (4 bytes)
-
-#define E100_PORT_SOFTWARE_RESET  0
-
-#define E100_SCB_COMMAND_CU_START 0x10
-#define E100_SCB_COMMAND_CU_RESUME  0x20
-
-#define E100_SCB_COMMAND_RU_START 1
-#define E100_SCB_COMMAND_RU_RESUME  2
-
-#define E100_SCB_STATACK_RNR    0x10
-#define E100_SCB_STATACK_CNA    0x20
-#define E100_SCB_STATACK_FR   0x40
-#define E100_SCB_STATACK_CXTNO    0x80
-
-// commands
-#define E100_CB_COMMAND_XMIT    0x4
-
-// command flags
-#define E100_CB_COMMAND_SF    0x0008  // simple/flexible mode
-#define E100_CB_COMMAND_I   0x2000  // interrupt on completion
-#define E100_CB_COMMAND_S   0x4000  // suspend on completion
-
-#define E100_CB_STATUS_C    0x8000
-
-#define E100_RFA_STATUS_OK    0x2000  // packet received okay
-#define E100_RFA_STATUS_C   0x8000  // packet reception complete
-
-#define E100_RFA_CONTROL_SF   0x0008  // simple/flexible memory mode
-#define E100_RFA_CONTROL_S    0x4000  // suspend after reception
-
 
 struct e100 the_e100;
 
