@@ -411,7 +411,9 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr)
     the_e100.tx[i].tcb.tbd_array_addr = V2P(&the_e100.tx[i].tbd);
     the_e100.tx[i].tcb.tbd_number = 1;
     the_e100.tx[i].tcb.tx_threshold = 4;
+    the_e100.tx[i].p=(uint8_t*)kalloc();
   }
+  the_e100.tx_head=the_e100.tx_tail=0;
 
   // Setup RX DMA ring for RU
   for (i = 0; i < E100_RX_SLOTS; i++) {

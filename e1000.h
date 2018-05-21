@@ -362,13 +362,13 @@ struct e100_tx_slot {
   struct e100_tbd tbd;
   // Some cards require two TBD after the TCB ("Extended TCB")
   struct e100_tbd unused;
-  uint32_t* p;
+  uint8_t* p;
 };
 
 struct e100_rx_slot {
   struct e100_rfa rfd;
   struct e100_rbd rbd;
-  uint32_t *p;
+  uint8_t *p;
   unsigned int offset;
 };
 
