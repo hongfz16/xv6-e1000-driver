@@ -277,6 +277,73 @@ struct e1000 {
   uint8_t mac_addr[6];
 };
 
+struct e100_cb_tx {
+  volatile uint16_t cb_status;
+  volatile uint16_t cb_command;
+  volatile uint32_t link_addr;
+  volatile uint32_t tbd_array_addr;
+  volatile uint16_t byte_count;
+  volatile uint8_t tx_threshold;
+  volatile uint8_t tbd_number;
+};
+
+// Transmit Buffer Descriptor (TBD)
+struct e100_tbd {
+  volatile uint32_t tb_addr;
+  volatile uint16_t tb_size;
+  volatile uint16_t tb_pad;
+};
+
+// Receive Frame Area (RFA)
+struct e100_rfa {
+  // Fields common to all i8255x chips.
+  volatile uint16_t rfa_status;
+  volatile uint16_t rfa_control;
+  volatile uint32_t link_addr;
+  volatile uint32_t rbd_addr;
+  volatile uint16_t actual_size;
+  volatile uint16_t size;
+};
+
+// Receive Buffer Descriptor (RBD)
+struct e100_rbd {
+  volatile uint16_t rbd_count;
+  volatile uint16_t rbd_pad0;
+  volatile uint32_t rbd_link;
+  volatile uint32_t rbd_buffer;
+  volatile uint16_t rbd_size;
+  volatile uint16_t rbd_pad1;
+};
+
+struct e100_tx_slot {
+  struct e100_cb_tx tcb;
+  struct e100_tbd tbd;
+  // Some cards require two TBD after the TCB ("Extended TCB")
+  struct e100_tbd unused;
+  uint32_t* p;
+};
+
+struct e100_rx_slot {
+  struct e100_rfa rfd;
+  struct e100_rbd rbd;
+  uint32_t *p;
+  unsigned int offset;
+};
+
+struct e100 {
+  uint32_t iobase;
+
+  struct e100_tx_slot tx[E100_TX_SLOTS];
+  int tx_head;
+  int tx_tail;
+  char tx_idle;
+
+  struct e100_rx_slot rx[E100_RX_SLOTS];
+  int rx_head;
+  int rx_tail;
+  char rx_idle;
+};
+
 
 int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr);
 
