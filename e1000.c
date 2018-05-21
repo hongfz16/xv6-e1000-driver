@@ -422,6 +422,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr)
     the_e100.rx[i].rfd.link_addr = V2P(&the_e100.rx[next].rfd);
     the_e100.rx[i].rfd.rbd_addr = V2P(&the_e100.rx[i].rbd);
     the_e100.rx[i].rbd.rbd_link = V2P(&the_e100.rx[next].rbd);
+    the_e100.rx[i].p=(uint8_t*)kalloc();
   }
 
   return 0;
