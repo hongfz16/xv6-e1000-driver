@@ -193,7 +193,7 @@
 // #define E1000_RCTL_SZ_2048        0x00000000    /* rx buffer size 2048 */
 // #define E1000_RCTL_SECRC          0x04000000    /* Strip Ethernet CRC */
 #define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
-// #define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
+#define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
 
 
 // #define E1000_REG(i) (e1000+i/4)
