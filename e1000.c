@@ -356,24 +356,24 @@ void e1000_send(void *driver, uint8_t *pkt, uint16_t length)
 {
   int i;
 
-  struct e100 the_e100=* (struct e100*) driver;
+  struct e100 *the_e100=(struct e100*) driver;
 
-  if (the_e100.tx_head - the_e100.tx_tail == E100_TX_SLOTS) {
+  if (the_e100->tx_head - the_e100->tx_tail == E100_TX_SLOTS) {
     cprintf("e100_txbuf: no space\n");
     return;
   }
 
-  i = the_e100.tx_head % E100_TX_SLOTS;
+  i = the_e100->tx_head % E100_TX_SLOTS;
 
-  memmove((the_e100.tx[i].p), pkt, length);
+  memmove((the_e100->tx[i].p), pkt, length);
 
-  the_e100.tx[i].tbd.tb_addr = V2P(the_e100.tx[i].p);
-  the_e100.tx[i].tbd.tb_size = length & E100_SIZE_MASK;
-  the_e100.tx[i].tcb.cb_status = 0;
-  the_e100.tx[i].tcb.cb_command = E100_CB_COMMAND_XMIT |
+  the_e100->tx[i].tbd.tb_addr = V2P(the_e100.tx[i].p);
+  the_e100->tx[i].tbd.tb_size = length & E100_SIZE_MASK;
+  the_e100->tx[i].tcb.cb_status = 0;
+  the_e100->tx[i].tcb.cb_command = E100_CB_COMMAND_XMIT |
     E100_CB_COMMAND_SF | E100_CB_COMMAND_I | E100_CB_COMMAND_S;
 
-  the_e100.tx_head++;
+  the_e100->tx_head++;
   
   e100_tx_start();
 }
