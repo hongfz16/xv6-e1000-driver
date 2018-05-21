@@ -257,9 +257,9 @@ void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length) {
   int i=(the_e1000->rbd_tail+1)%E1000_RBD_SLOTS;
   if(!(the_e1000->rbd[i]->status&E1000_RXD_STAT_DD )||!(the_e1000->rbd[i]->status&E1000_RXD_STAT_EOP))
   {
-    return -1;
+    return;
   }
   *length=the_e1000->rbd[i]->length;
-  pkt=(uint8_t*)(the_e1000->rx_buf[i]->buf[0]);
+  pkt=&(the_e1000->rx_buf[i]->buf[0]);
   the_e1000->rbd_tail=i;
 }
