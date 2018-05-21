@@ -495,19 +495,19 @@ sys_checknic(void)
     if((TAIL+1)%128==HEAD)
       continue;
     TAIL=(TAIL+1)%128;
+    while(!(e1000p->rbd[i]->status&E1000_RXD_STAT_DD )||!(e1000p->rbd[i]->status&E1000_RXD_STAT_EOP)){}
     cprintf("TAIL : %x\n",TAIL);
     cprintf("HEAD : %x\n",HEAD);
-    struct packet_buf* pbp=e1000p->rx_buf[TAIL];
-    for(int i=0;i<2046;++i)
-    {
-      cprintf("%x",pbp->buf[i]);
-    }
-    cprintf("\n");
     struct e1000_rbd* rbdp=e1000p->rbd[TAIL];
     cprintf("LENGTH : %x\n",rbdp->length);
     cprintf("STATUS : %x\n",rbdp->status);
     cprintf("ERROR : %x\n",rbdp->errors);
     cprintf("CHECKSUM : %x\n",rbdp->checksum);
+    struct packet_buf* pbp=e1000p->rx_buf[TAIL];
+    for(int i=0;i<2046;++i)
+    {
+      cprintf("%x",pbp->buf[i]);
+    }
   }
 
 

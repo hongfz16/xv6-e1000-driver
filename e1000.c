@@ -82,8 +82,8 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   }
   if (!the_e1000->iobase)
     panic("Fail to find a valid I/O port base for E1000.");
-    if (!the_e1000->membase)
-      panic("Fail to find a valid Mem I/O base for E1000.");
+  if (!the_e1000->membase)
+    panic("Fail to find a valid Mem I/O base for E1000.");
 
 	the_e1000->irq_line = pcif->irq_line;
   the_e1000->irq_pin = pcif->irq_pin;
@@ -92,20 +92,20 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   the_e1000->rbd_head = the_e1000->rbd_tail = 0;
 
   // Reset device but keep the PCI config
-  e1000_reg_write(E1000_CNTRL_REG,
-    e1000_reg_read(E1000_CNTRL_REG, the_e1000) | E1000_CNTRL_RST_MASK,
-    the_e1000);
-  //read back the value after approx 1us to check RST bit cleared
-  do {
-    udelay(3);
-  }while(E1000_CNTRL_RST_BIT(e1000_reg_read(E1000_CNTRL_REG, the_e1000)));
+  // e1000_reg_write(E1000_CNTRL_REG,
+  //   e1000_reg_read(E1000_CNTRL_REG, the_e1000) | E1000_CNTRL_RST_MASK,
+  //   the_e1000);
+  // //read back the value after approx 1us to check RST bit cleared
+  // do {
+  //   udelay(3);
+  // }while(E1000_CNTRL_RST_BIT(e1000_reg_read(E1000_CNTRL_REG, the_e1000)));
 
-  //the manual says in Section 14.3 General Config -
-  //Must set the ASDE and SLU(bit 5 and 6(0 based index)) in the CNTRL Reg to allow auto speed
-  //detection after RESET
-  uint32_t cntrl_reg = e1000_reg_read(E1000_CNTRL_REG, the_e1000);
-  e1000_reg_write(E1000_CNTRL_REG, cntrl_reg | E1000_CNTRL_ASDE_MASK | E1000_CNTRL_SLU_MASK,
-    the_e1000);
+  // //the manual says in Section 14.3 General Config -
+  // //Must set the ASDE and SLU(bit 5 and 6(0 based index)) in the CNTRL Reg to allow auto speed
+  // //detection after RESET
+  // uint32_t cntrl_reg = e1000_reg_read(E1000_CNTRL_REG, the_e1000);
+  // e1000_reg_write(E1000_CNTRL_REG, cntrl_reg | E1000_CNTRL_ASDE_MASK | E1000_CNTRL_SLU_MASK,
+  //   the_e1000);
 
   //Read Hardware(MAC) address from the device
   uint32_t macaddr_l = e1000_reg_read(E1000_RCV_RAL0, the_e1000);
@@ -162,7 +162,8 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
 
   for(int i=0; i<E1000_TBD_SLOTS; i+=2) {
     tmp = (struct packet_buf*)kalloc();
-    the_e1000->tx_buf[i] = tmp++;
+    the_e1000->tx_buf[i] = tmp;
+    tmp++;
     //the_e1000->tbd[i]->addr = (uint32_t)the_e1000->tx_buf[i];
     //the_e1000->tbd[i]->addr_h = 0;
     the_e1000->tx_buf[i+1] = tmp;
@@ -175,18 +176,22 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   e1000_reg_write(E1000_TDBAH, 0x00000000, the_e1000);
   e1000_reg_write(E1000_TDLEN, (E1000_TBD_SLOTS*16), the_e1000);
   e1000_reg_write(E1000_TDH, 0x00000000, the_e1000);
-  e1000_reg_write(E1000_TCTL, 0x0004010A,
-                  // E1000_TCTL_EN |
-                  //   E1000_TCTL_PSP |
-                  //   E1000_TCTL_CT_SET(0x0f) |
-                  //   E1000_TCTL_COLD_SET(0x200),
+  e1000_reg_write(E1000_TCTL, //0x0004010A,
+                  E1000_TCTL_EN |
+                    E1000_TCTL_PSP |
+                    E1000_TCTL_CT_SET(0x0f) |
+                    E1000_TCTL_COLD_SET(0x200),
                   the_e1000);
   e1000_reg_write(E1000_TDT, 0, the_e1000);
-  e1000_reg_write(E1000_TIPG, 0x60100a,
-                  // E1000_TIPG_IPGT_SET(10) |
-                  //   E1000_TIPG_IPGR1_SET(10) |
-                  //   E1000_TIPG_IPGR2_SET(10),
+  e1000_reg_write(E1000_TIPG, //0x60100a,
+                  E1000_TIPG_IPGT_SET(10) |
+                    E1000_TIPG_IPGR1_SET(10) |
+                    E1000_TIPG_IPGR2_SET(10),
                   the_e1000);
+
+  the_e1000->tbd_tail=the_e1000->tbd_head=0;
+  the_e1000->rbd_tail=E1000_RBD_SLOTS-1;
+  the_e1000->rbd_head=0;
                   
   e1000_reg_write(E1000_RCV_RAL0, 0x12005452, the_e1000);
   e1000_reg_write(E1000_RCV_RAH0, 0x5634|0x80000000, the_e1000);
@@ -197,7 +202,8 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
 
   for(int i=0; i<E1000_RBD_SLOTS; i+=2) {
     tmp = (struct packet_buf*)kalloc();
-    the_e1000->rx_buf[i] = tmp++;
+    the_e1000->rx_buf[i] = tmp;
+    tmp++;
     the_e1000->rbd[i]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i]);
     the_e1000->rbd[i]->addr_h = 0;
     the_e1000->rx_buf[i+1] = tmp;
@@ -222,11 +228,11 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   uint32_t rflag=0;
   rflag|=E1000_RCTL_EN;
   //rflag&=(~0x00000C00);
-  rflag|=E1000_RCTL_UPE;
+  //rflag|=E1000_RCTL_UPE;
   //rflag|=E1000_RCTL_LBM_MAC|E1000_RCTL_LBM_SLP|E1000_RCTL_LBM_TCVR;
-  rflag|=E1000_RCTL_VFE;
-  rflag|=0x00000000;
+  //rflag|=E1000_RCTL_VFE;
   rflag|=E1000_RCTL_BAM;
+  rflag|=0x00000000;
   rflag|=E1000_RCTL_SECRC;
   e1000_reg_write(E1000_RCTL,rflag,the_e1000);
   
@@ -246,7 +252,14 @@ cprintf("e1000:Interrupt enabled mask:0x%x\n", e1000_reg_read(E1000_IMS, the_e10
   return 0;
 }
 
-void e1000_recv(void *driver, uint8_t* pkt, uint16_t length) {
-
-
+void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length) {
+  struct e1000 *the_e1000=(struct e1000*)driver;
+  int i=(the_e1000->rbd_tail+1)%E1000_RBD_SLOTS;
+  if(!(the_e1000->rbd[i]->status&E1000_RXD_STAT_DD )||!(the_e1000->rbd[i]->status&E1000_RXD_STAT_EOP))
+  {
+    return -1;
+  }
+  *length=the_e1000->rbd[i]->length;
+  pkt=(uint8_t*)(the_e1000->rx_buf[i]->buf[0]);
+  the_e1000->rbd_tail=i;
 }
