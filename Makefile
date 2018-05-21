@@ -222,7 +222,7 @@ CPUS := 2
 endif
 
 PORT=26001
-QEMUEXTRA += -redir tcp:$(PORT)::7 -redir udp:$(PORT)::7 -net dump,file=qemu.pcap
+QEMUEXTRA += -redir tcp:$(PORT)::7 -redir udp:$(PORT)::7 -net dump,file=qemu.pcap -debug-e100
 QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 -net user -net nic,model=i82559er $(QEMUEXTRA)
 qemu: fs.img xv6.img
 	$(QEMU) -serial mon:stdio $(QEMUOPTS)
