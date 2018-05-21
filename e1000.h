@@ -241,9 +241,10 @@ struct e1000_tbd {
 // The Receive Descriptor Queue must be aligned on 16-byte boundary
 __attribute__ ((packed))
 struct e1000_rbd {
-  uint32_t addr_l;
-  uint32_t addr_h;
-	uint16_t	length;
+  // uint32_t addr_l;
+  // uint32_t addr_h;
+	uint64_t addr;
+  uint16_t	length;
 	uint16_t	checksum;
 	uint8_t	status;
 	uint8_t	errors;
