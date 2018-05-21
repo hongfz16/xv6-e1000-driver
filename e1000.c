@@ -380,6 +380,7 @@ void e1000_send(void *driver, uint8_t *pkt, uint16_t length)
 
 int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr)
 {
+  cprintf("initializing!\n");
   *driver=&the_e100;
   // Store parameters
   int i;
