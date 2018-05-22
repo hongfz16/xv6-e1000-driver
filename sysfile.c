@@ -546,7 +546,6 @@ sys_checknic(void)
         cprintf("%x",*p);
         ++p;
       }
-      break;
     }
     // HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
     // if((TAIL+1)%128==HEAD)
