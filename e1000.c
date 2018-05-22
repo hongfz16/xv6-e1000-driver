@@ -408,7 +408,7 @@ static void e100_intr_tx(void)
 
 static void e100_intr_rx(void)
 {
-  int *count;
+  //int *count;
   int i;
 
   for (; the_e100.rx_head != the_e100.rx_tail; the_e100.rx_tail++) {
@@ -417,11 +417,11 @@ static void e100_intr_rx(void)
     if (!(the_e100.rx[i].rfd.rfa_status & E100_RFA_STATUS_C))
       break;
 
-    count = (int*)(V2P(the_e100.rx[i].p) + the_e100.rx[i].offset);
-    if (the_e100.rx[i].rfd.rfa_status & E100_RFA_STATUS_OK)
-      *count = the_e100.rx[i].rbd.rbd_count & E100_SIZE_MASK;
-    else
-      *count = -1;
+    // count = (int*)(V2P(the_e100.rx[i].p) + the_e100.rx[i].offset);
+    // if (the_e100.rx[i].rfd.rfa_status & E100_RFA_STATUS_OK)
+    //   *count = the_e100.rx[i].rbd.rbd_count & E100_SIZE_MASK;
+    // else
+    //   *count = -1;
 
     //page_decref(the_e100.rx[i].p);
     the_e100.rx[i].p = 0;
