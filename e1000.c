@@ -553,7 +553,7 @@ nic_alloc_cbl(void)
    * However, because we use 32-bit machine, alignment
    * is required. Here we use 4 bytes alignment
    */
-  uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
+  //uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
 
   // Use the flash memory, it is 16K, the physical memory is 4K
   //cu_base = (void *)(pcircd.reg_base[2]);
@@ -566,7 +566,7 @@ nic_alloc_cbl(void)
   for (i = 0; i < TCB_COUNT - 1; i ++) {
     cb_p->cb.cmd = 0;
     cb_p->cb.status = 0;
-    cb_p->cb.link = tcb_size * (i + 1);
+    cb_p->cb.link = /*tcb_size **/ (i + 1);
     cb_p++;
   }
   // Finish the Ring
@@ -583,7 +583,7 @@ nic_alloc_rfa(void)
    * However, because we use 32-bit machine, alignment
    * is required. Here we use 4 bytes alignment
    */
-  uint32_t rfd_size = ROUNDUP(sizeof(struct rfd), 4);
+  //uint32_t rfd_size = ROUNDUP(sizeof(struct rfd), 4);
   //uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
 
   // Use the flash memory, set it to the end of the area
@@ -598,7 +598,7 @@ nic_alloc_rfa(void)
   for (i = 0; i < RFD_COUNT - 1; i ++) {
     cb_p->cb.cmd = 0;
     cb_p->cb.status = 0;
-    cb_p->cb.link = rfd_size * (i + 1);
+    cb_p->cb.link = /*rfd_size **/ (i + 1);
     cb_p->reserved = 0xFFFFFFFF;
     cb_p->buffer_size = MAX_ETH_FRAME;
     cb_p++;
