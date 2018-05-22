@@ -16,6 +16,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "x86.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -484,14 +485,14 @@ sys_checknic(void)
     return -1;
   }
   struct e100* e100p=(struct e100*)nic_devices[0].driver;
-  uint8_t* pkt=(uint8_t)kalloc();
+  uint8_t* pkt=(uint8_t*)kalloc();
   uint16_t* length=0;
   e1000_recv(e100p,pkt,length);
   uint8_t old_status=inb(e100p->iobase);
   while(1)
   {
     uint8_t new_status=inl(e100p->iobase);
-    delay(10);
+    udelay(10);
     if(new_status!=old_status)
     {
       cprintf("new: 0x%x\n",new_status);
