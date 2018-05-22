@@ -417,7 +417,7 @@ static void e100_intr_rx(void)
     if (!(the_e100.rx[i].rfd.rfa_status & E100_RFA_STATUS_C))
       break;
 
-    count = V2P(the_e100.rx[i].p) + the_e100.rx[i].offset;
+    count = (int*)(V2P(the_e100.rx[i].p) + the_e100.rx[i].offset);
     if (the_e100.rx[i].rfd.rfa_status & E100_RFA_STATUS_OK)
       *count = the_e100.rx[i].rbd.rbd_count & E100_SIZE_MASK;
     else
