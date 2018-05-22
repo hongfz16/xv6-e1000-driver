@@ -400,6 +400,9 @@ struct e1000 {
 
 #define MAX_ETH_FRAME 1518
 
+#define TCB_COUNT 16
+#define RFD_COUNT 16
+
 #define ROUNDDOWN(a, n)           \
 ({                \
   uint32_t __a = (uint32_t) (a);        \
@@ -441,7 +444,11 @@ struct pci_record {
 };
 
 struct pci_record pcircd;
-
+struct e100
+{
+  struct tcb tcbring[TCB_COUNT];
+  struct rfd rfdring[RFD_COUNT];
+} the_e100;
 
 // Public Functions
 //int nic_e100_enable(struct pci_func *);

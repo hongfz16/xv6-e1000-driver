@@ -529,8 +529,6 @@
 // #include "nic.h"
 // #include "memlayout.h"
 
-#define TCB_COUNT 16
-#define RFD_COUNT 16
 
 #define PADDR V2P
 
@@ -550,7 +548,7 @@ static int
 nic_alloc_cbl(void)
 {
   int i;
-  struct tcb *cb_p;
+  struct tcb *cb_p=&the_e100.tcbring[0];
   /* tcb_size is 1518+8+8=1534 bytes
    * However, because we use 32-bit machine, alignment
    * is required. Here we use 4 bytes alignment
@@ -558,10 +556,11 @@ nic_alloc_cbl(void)
   uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
 
   // Use the flash memory, it is 16K, the physical memory is 4K
-  cu_base = (void *)(pcircd.reg_base[2]);
+  //cu_base = (void *)(pcircd.reg_base[2]);
 
   // Set CU_ptr to cu_base for further transmission
-  cu_ptr = cb_p = (struct tcb *)cu_base;
+  cu_ptr = cb_p ;//= (struct tcb *)cu_base;
+  cu_base = cb_p;
 
   // Construct the DMA TX Ring
   for (i = 0; i < TCB_COUNT - 1; i ++) {
@@ -579,7 +578,7 @@ static int
 nic_alloc_rfa(void)
 {
   int i;
-  struct rfd *cb_p;
+  struct rfd *cb_p=&the_e100.rfdring[0];
   /* rfd_size is 1518+8+8=1534 bytes
    * However, because we use 32-bit machine, alignment
    * is required. Here we use 4 bytes alignment
@@ -589,10 +588,11 @@ nic_alloc_rfa(void)
 
   // Use the flash memory, set it to the end of the area
   // which has been taken by tcb ring
-  ru_base = (void *)(pcircd.reg_base[2] + tcb_size * TCB_COUNT);
+  //ru_base = (void *)(pcircd.reg_base[2] + tcb_size * TCB_COUNT);
 
   // Set ru_ptr to ru_base for further recepted processing
-  ru_ptr = cb_p = (struct rfd *)ru_base;
+  ru_ptr = cb_p ;//= (struct rfd *)ru_base;
+  ru_base = cb_p;
 
   // Construct the DMA RX Ring
   for (i = 0; i < RFD_COUNT - 1; i ++) {
