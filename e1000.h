@@ -403,17 +403,17 @@ struct e1000 {
 // #define TCB_COUNT 16
 // #define RFD_COUNT 16
 
-// #define ROUNDDOWN(a, n)           \
-// ({                \
-//   uint32_t __a = (uint32_t) (a);        \
-//   (typeof(a)) (__a - __a % (n));        \
-// })
-// // Round up to the nearest multiple of n
-// #define ROUNDUP(a, n)           \
-// ({                \
-//   uint32_t __n = (uint32_t) (n);        \
-//   (typeof(a)) (ROUNDDOWN((uint32_t) (a) + __n - 1, __n)); \
-// })
+#define ROUNDDOWN(a, n)           \
+({                \
+  uint32_t __a = (uint32_t) (a);        \
+  (typeof(a)) (__a - __a % (n));        \
+})
+// Round up to the nearest multiple of n
+#define ROUNDUP(a, n)           \
+({                \
+  uint32_t __n = (uint32_t) (n);        \
+  (typeof(a)) (ROUNDDOWN((uint32_t) (a) + __n - 1, __n)); \
+})
 
 // struct cb {
 //   volatile uint16_t status;
