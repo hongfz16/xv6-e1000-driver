@@ -391,6 +391,72 @@ void e1000_send(void *driver, uint8_t *pkt, uint16_t length)
   e100_tx_start();
 }
 
+static void e100_intr_tx(void)
+{
+  int i;
+
+  for (; the_e100.tx_head != the_e100.tx_tail; the_e100.tx_tail++) {
+    i = the_e100.tx_tail % E100_TX_SLOTS;
+    
+    if (!(the_e100.tx[i].tcb.cb_status & E100_CB_STATUS_C))
+      break;
+
+    //page_decref(the_e100.tx[i].p);
+    //the_e100.tx[i].p = 0;
+  }
+}
+
+static void e100_intr_rx(void)
+{
+  int *count;
+  int i;
+
+  for (; the_e100.rx_head != the_e100.rx_tail; the_e100.rx_tail++) {
+    i = the_e100.rx_tail % E100_RX_SLOTS;
+    
+    if (!(the_e100.rx[i].rfd.rfa_status & E100_RFA_STATUS_C))
+      break;
+
+    count = V2P(the_e100.rx[i].p) + the_e100.rx[i].offset;
+    if (the_e100.rx[i].rfd.rfa_status & E100_RFA_STATUS_OK)
+      *count = the_e100.rx[i].rbd.rbd_count & E100_SIZE_MASK;
+    else
+      *count = -1;
+
+    //page_decref(the_e100.rx[i].p);
+    the_e100.rx[i].p = 0;
+    the_e100.rx[i].offset = 0;
+  }
+}
+
+void e100_intr(void)
+{
+  int r;
+  
+  r = inb(the_e100.iobase + E100_CSR_SCB_STATACK);
+  outb(the_e100.iobase + E100_CSR_SCB_STATACK, r);
+  
+  if (r & (E100_SCB_STATACK_CXTNO | E100_SCB_STATACK_CNA)) {
+    r &= ~(E100_SCB_STATACK_CXTNO | E100_SCB_STATACK_CNA);
+    e100_intr_tx();
+  }
+
+  if (r & E100_SCB_STATACK_FR) {
+    r &= ~E100_SCB_STATACK_FR;
+    e100_intr_rx();
+  }
+
+  if (r & E100_SCB_STATACK_RNR) {
+    r &= ~E100_SCB_STATACK_RNR;
+    the_e100.rx_idle = 1;
+    e100_rx_start();
+    cprintf("e100_intr: RNR interrupt, no RX bufs?\n");
+  }
+
+  if (r)
+    cprintf("e100_intr: unhandled STAT/ACK %x\n", r);
+}
+
 int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr)
 {
   cprintf("initializing!\n");

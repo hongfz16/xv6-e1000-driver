@@ -7,6 +7,7 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#include "e1000.h"
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -73,7 +74,8 @@ trap(struct trapframe *tf)
     break;
 
   case T_IRQ0 + IRQ_ETH:
-    cprintf("NIC Interrupted!");
+    cprintf("NIC Interrupted!\n");
+    e100_intr();
     lapiceoi();
     break;
   
