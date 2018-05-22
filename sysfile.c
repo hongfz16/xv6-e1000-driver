@@ -485,7 +485,7 @@ sys_checknic(void)
     return -1;
   }
 
-  void* driver=NULL;
+  void* driver=0;
   uint16_t length=0;
   uint8_t* p=(uint8_t*)kalloc();
   while(1)
