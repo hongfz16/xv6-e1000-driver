@@ -529,30 +529,42 @@ sys_checknic(void)
 
 
   struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
-  TAIL=e1000_reg_read(E1000_RDT,nic_devices[0].driver);
+  //TAIL=e1000_reg_read(E1000_RDT,nic_devices[0].driver);
   // cprintf("TAIL : %x\n",TAIL);
-  HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
+  //HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
   // cprintf("HEAD : %x\n",HEAD);
 
+  uint8_t* p=(uint8_t*)kalloc();
+  uint16_t length=0;
   while(1)
   {
-    HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
-    if((TAIL+1)%128==HEAD)
-      continue;
-    TAIL=(TAIL+1)%128;
-    while(!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_DD )||!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_EOP)){}
-    cprintf("TAIL : %x\n",TAIL);
-    cprintf("HEAD : %x\n",HEAD);
-    struct e1000_rbd* rbdp=e1000p->rbd[TAIL];
-    cprintf("LENGTH : %x\n",rbdp->length);
-    cprintf("STATUS : %x\n",rbdp->status);
-    cprintf("ERROR : %x\n",rbdp->errors);
-    cprintf("CHECKSUM : %x\n",rbdp->checksum);
-    struct packet_buf* pbp=e1000p->rx_buf[TAIL];
-    for(int i=0;i<2046;++i)
+    e1000_recv(e1000p,p,&length);
+    if(length!=0)
     {
-      cprintf("%x",pbp->buf[i]);
+      for(int i=0;i<length;++i)
+      {
+        cprintf("%x",*p);
+        ++p;
+      }
+      break;
     }
+    // HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
+    // if((TAIL+1)%128==HEAD)
+    //   continue;
+    // TAIL=(TAIL+1)%128;
+    // while(!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_DD )||!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_EOP)){}
+    // cprintf("TAIL : %x\n",TAIL);
+    // cprintf("HEAD : %x\n",HEAD);
+    // struct e1000_rbd* rbdp=e1000p->rbd[TAIL];
+    // cprintf("LENGTH : %x\n",rbdp->length);
+    // cprintf("STATUS : %x\n",rbdp->status);
+    // cprintf("ERROR : %x\n",rbdp->errors);
+    // cprintf("CHECKSUM : %x\n",rbdp->checksum);
+    // struct packet_buf* pbp=e1000p->rx_buf[TAIL];
+    // for(int i=0;i<2046;++i)
+    // {
+    //   cprintf("%x",pbp->buf[i]);
+    // }
   }
 
 
