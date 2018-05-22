@@ -553,7 +553,7 @@ nic_alloc_cbl(void)
    * However, because we use 32-bit machine, alignment
    * is required. Here we use 4 bytes alignment
    */
-  uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
+  //uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
 
   // Use the flash memory, it is 16K, the physical memory is 4K
   //cu_base = (void *)(pcircd.reg_base[2]);
@@ -584,7 +584,7 @@ nic_alloc_rfa(void)
    * is required. Here we use 4 bytes alignment
    */
   uint32_t rfd_size = ROUNDUP(sizeof(struct rfd), 4);
-  uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
+  //uint32_t tcb_size = ROUNDUP(sizeof(struct tcb), 4);
 
   // Use the flash memory, set it to the end of the area
   // which has been taken by tcb ring
