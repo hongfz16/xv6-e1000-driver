@@ -942,7 +942,7 @@ shm_init(void)
 int
 pci_attach_e100(struct pci_func *pcif)
 {
-  int i;
+  //int i;
 
   //pci_func_enable(pcif);
   e100_io_addr = pcif->reg_base[1];

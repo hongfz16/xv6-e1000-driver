@@ -1,5 +1,13 @@
 // Routines to let C code use special x86 instructions.
 
+static inline uint16_t
+inw(int port)
+{
+  uint16_t data;
+  asm volatile("inw %w1,%0" : "=a" (data) : "d" (port));
+  return data;
+}
+
 static inline uchar
 inb(ushort port)
 {
