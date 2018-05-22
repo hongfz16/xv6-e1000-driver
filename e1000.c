@@ -768,6 +768,8 @@ nic_e100_trans_pkt(void *pkt_data, uint32_t datalen)
   // a packet next time
   cu_ptr = cu_base + cu_ptr->cb.link;
 
+  cprintf("here");
+
   return 0;
 }
 
