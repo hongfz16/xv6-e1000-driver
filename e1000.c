@@ -208,7 +208,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
     the_e1000->rbd[i]->addr_h = 0;
     //the_e1000->rbd[i]->addr=(uint64_t)V2P((uint32_t)the_e1000->rx_buf[i]+4);
     the_e1000->rx_buf[i+1] = tmp;
-    the_e1000->rbd[i+1]->addr_l = (uint64_t)V2P((uint32_t)the_e1000->rx_buf[i+1]+4);
+    the_e1000->rbd[i+1]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i+1]+4);
     the_e1000->rbd[i+1]->addr_h = 0;
   }
 
