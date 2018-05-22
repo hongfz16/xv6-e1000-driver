@@ -617,7 +617,7 @@ nic_e100_enable(struct pci_func *pcif)
 {
   int i;
 
-  pci_func_enable(pcif);
+  //pci_func_enable(pcif);
 
   // Record the Memory and I/O information
   for (i = 0; i < 6; i ++) {
