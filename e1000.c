@@ -747,11 +747,11 @@ nic_e100_trans_pkt(void *pkt_data, uint32_t datalen)
 
     // Resume the CU
     // FIXME: Cannot use CU_START command here, why?
-    outw(csr_port + 0x2, SCBCMD_CU_RESUME);
+//    outw(csr_port + 0x2, SCBCMD_CU_RESUME);
 
 // #if 0
 //     // Start the CU
-//     outw(csr_port + 0x2, SCBCMD_CU_START);
+     outw(csr_port + 0x2, SCBCMD_CU_START);
 // #endif
   } else if (cu_status == SCBSTS_CU_SUSP) {
   // Resume CU if it is suspended, CU has read the next link in the CBL
