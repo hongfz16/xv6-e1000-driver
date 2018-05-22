@@ -532,6 +532,8 @@
 #define TCB_COUNT 16
 #define RFD_COUNT 16
 
+#define PADDR V2P
+
 uint32_t csr_port;
 
 void *cu_base;
@@ -610,12 +612,6 @@ nic_alloc_rfa(void)
   return 0;
 }
 
-int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr)
-{
-  return nic_e100_enable(pcif);
-  *driver=0;
-}
-
 int
 nic_e100_enable(struct pci_func *pcif)
 {
@@ -667,6 +663,12 @@ nic_e100_enable(struct pci_func *pcif)
   return 0;
 }
 
+int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr)
+{
+  return nic_e100_enable(pcif);
+  *driver=0;
+}
+
 // Before we transmit a packet, we first reclaim any buffers which 
 // have been marked as transmitted by the E100. But we do not actually
 // reclaim it, just make a mark since what we use is a ring buffer
@@ -709,11 +711,6 @@ construct_tcb_header(struct tcb *tcb_ptr, uint16_t datalen)
   if (debug)
     cprintf("DBG: Construct a tcb header : datalen = %d, this ptr = %x, next = %x\n", 
       tcb_ptr->tbd_byte_count, tcb_ptr, tcb_ptr->cb.link);
-}
-
-void e1000_send(void *e1000, uint8_t* pkt, uint16_t length)
-{
-  nic_e100_trans_pkt(pkt,(uint32_t)datalen);
 }
 
 int
@@ -774,6 +771,11 @@ nic_e100_trans_pkt(void *pkt_data, uint32_t datalen)
   return 0;
 }
 
+void e1000_send(void *e1000, uint8_t* pkt, uint16_t length)
+{
+  nic_e100_trans_pkt(pkt,(uint32_t)length);
+}
+
 static int
 rfd_avail(struct rfd *rfd_ptr)
 {
@@ -806,16 +808,11 @@ nic_clear_rfd(struct rfd *rfd_ptr)
   rfd_ptr->cb.cmd |= TCBCMD_EL;
 }
 
-void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length)
-{
-  *length=(uint16_t)nic_e100_recv_pkt(pkt);
-}
-
 int
 nic_e100_recv_pkt(void *pkt_buf)
 {
-  int8_t ru_status;
-  int16_t pkt_actual_count;
+  uint8_t ru_status;
+  uint16_t pkt_actual_count;
 
   if (!rfd_avail(ru_ptr)) {
     // There is no available slot in the DMA rfa ring
@@ -852,4 +849,9 @@ nic_e100_recv_pkt(void *pkt_buf)
   // else, RU is working normally and receiving packets, leave her alone =)
   
   return (int)pkt_actual_count;
+}
+
+void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length)
+{
+  *length=(uint16_t)nic_e100_recv_pkt(pkt);
 }
