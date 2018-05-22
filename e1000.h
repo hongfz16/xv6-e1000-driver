@@ -277,121 +277,250 @@ struct e1000 {
   uint8_t mac_addr[6];
 };
 
-uint8_t e100_irq;
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-#define E100_TX_SLOTS     64
-#define E100_RX_SLOTS     64
+// uint8_t e100_irq;
 
-#define E100_NULL     0xffffffff
-#define E100_SIZE_MASK      0x3fff  // mask out status/control bits
+// #define E100_TX_SLOTS     64
+// #define E100_RX_SLOTS     64
 
-#define E100_CSR_SCB_STATACK    0x01  // scb_statack (1 byte)
-#define E100_CSR_SCB_COMMAND    0x02  // scb_command (1 byte)
-#define E100_CSR_SCB_GENERAL    0x04  // scb_general (4 bytes)
-#define E100_CSR_PORT     0x08  // port (4 bytes)
+// #define E100_NULL     0xffffffff
+// #define E100_SIZE_MASK      0x3fff  // mask out status/control bits
 
-#define E100_PORT_SOFTWARE_RESET  0
+// #define E100_CSR_SCB_STATACK    0x01  // scb_statack (1 byte)
+// #define E100_CSR_SCB_COMMAND    0x02  // scb_command (1 byte)
+// #define E100_CSR_SCB_GENERAL    0x04  // scb_general (4 bytes)
+// #define E100_CSR_PORT     0x08  // port (4 bytes)
 
-#define E100_SCB_COMMAND_CU_START 0x10
-#define E100_SCB_COMMAND_CU_RESUME  0x20
+// #define E100_PORT_SOFTWARE_RESET  0
 
-#define E100_SCB_COMMAND_RU_START 1
-#define E100_SCB_COMMAND_RU_RESUME  2
+// #define E100_SCB_COMMAND_CU_START 0x10
+// #define E100_SCB_COMMAND_CU_RESUME  0x20
 
-#define E100_SCB_STATACK_RNR    0x10
-#define E100_SCB_STATACK_CNA    0x20
-#define E100_SCB_STATACK_FR   0x40
-#define E100_SCB_STATACK_CXTNO    0x80
+// #define E100_SCB_COMMAND_RU_START 1
+// #define E100_SCB_COMMAND_RU_RESUME  2
 
-// commands
-#define E100_CB_COMMAND_XMIT    0x4
+// #define E100_SCB_STATACK_RNR    0x10
+// #define E100_SCB_STATACK_CNA    0x20
+// #define E100_SCB_STATACK_FR   0x40
+// #define E100_SCB_STATACK_CXTNO    0x80
 
-// command flags
-#define E100_CB_COMMAND_SF    0x0008  // simple/flexible mode
-#define E100_CB_COMMAND_I   0x2000  // interrupt on completion
-#define E100_CB_COMMAND_S   0x4000  // suspend on completion
+// // commands
+// #define E100_CB_COMMAND_XMIT    0x4
 
-#define E100_CB_STATUS_C    0x8000
+// // command flags
+// #define E100_CB_COMMAND_SF    0x0008  // simple/flexible mode
+// #define E100_CB_COMMAND_I   0x2000  // interrupt on completion
+// #define E100_CB_COMMAND_S   0x4000  // suspend on completion
 
-#define E100_RFA_STATUS_OK    0x2000  // packet received okay
-#define E100_RFA_STATUS_C   0x8000  // packet reception complete
+// #define E100_CB_STATUS_C    0x8000
 
-#define E100_RFA_CONTROL_SF   0x0008  // simple/flexible memory mode
-#define E100_RFA_CONTROL_S    0x4000  // suspend after reception
+// #define E100_RFA_STATUS_OK    0x2000  // packet received okay
+// #define E100_RFA_STATUS_C   0x8000  // packet reception complete
 
-struct e100_cb_tx {
-  volatile uint16_t cb_status;
-  volatile uint16_t cb_command;
-  volatile uint32_t link_addr;
-  volatile uint32_t tbd_array_addr;
-  volatile uint16_t byte_count;
-  volatile uint8_t tx_threshold;
-  volatile uint8_t tbd_number;
+// #define E100_RFA_CONTROL_SF   0x0008  // simple/flexible memory mode
+// #define E100_RFA_CONTROL_S    0x4000  // suspend after reception
+
+// struct e100_cb_tx {
+//   volatile uint16_t cb_status;
+//   volatile uint16_t cb_command;
+//   volatile uint32_t link_addr;
+//   volatile uint32_t tbd_array_addr;
+//   volatile uint16_t byte_count;
+//   volatile uint8_t tx_threshold;
+//   volatile uint8_t tbd_number;
+// };
+
+// // Transmit Buffer Descriptor (TBD)
+// struct e100_tbd {
+//   volatile uint32_t tb_addr;
+//   volatile uint16_t tb_size;
+//   volatile uint16_t tb_pad;
+// };
+
+// // Receive Frame Area (RFA)
+// struct e100_rfa {
+//   // Fields common to all i8255x chips.
+//   volatile uint16_t rfa_status;
+//   volatile uint16_t rfa_control;
+//   volatile uint32_t link_addr;
+//   volatile uint32_t rbd_addr;
+//   volatile uint16_t actual_size;
+//   volatile uint16_t size;
+// };
+
+// // Receive Buffer Descriptor (RBD)
+// struct e100_rbd {
+//   volatile uint16_t rbd_count;
+//   volatile uint16_t rbd_pad0;
+//   volatile uint32_t rbd_link;
+//   volatile uint32_t rbd_buffer;
+//   volatile uint16_t rbd_size;
+//   volatile uint16_t rbd_pad1;
+// };
+
+// struct e100_tx_slot {
+//   struct e100_cb_tx tcb;
+//   struct e100_tbd tbd;
+//   // Some cards require two TBD after the TCB ("Extended TCB")
+//   struct e100_tbd unused;
+//   uint8_t* p;
+// };
+
+// struct e100_rx_slot {
+//   struct e100_rfa rfd;
+//   struct e100_rbd rbd;
+//   uint8_t *p;
+//   unsigned int offset;
+// };
+
+// struct e100 {
+//   uint32_t iobase;
+
+//   struct e100_tx_slot tx[E100_TX_SLOTS];
+//   int tx_head;
+//   int tx_tail;
+//   char tx_idle;
+
+//   struct e100_rx_slot rx[E100_RX_SLOTS];
+//   int rx_head;
+//   int rx_tail;
+//   char rx_idle;
+// };
+
+
+// int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr);
+
+// void e1000_send(void *e1000, uint8_t* pkt, uint16_t length);
+// void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length);
+// void e100_intr(void);
+// void udelay(unsigned int u);
+
+//>>>>>>>>>>>>>>>>>>>>>>
+
+#define MAX_ETH_FRAME 1518
+
+#define ROUNDDOWN(a, n)           \
+({                \
+  uint32_t __a = (uint32_t) (a);        \
+  (typeof(a)) (__a - __a % (n));        \
+})
+// Round up to the nearest multiple of n
+#define ROUNDUP(a, n)           \
+({                \
+  uint32_t __n = (uint32_t) (n);        \
+  (typeof(a)) (ROUNDDOWN((uint32_t) (a) + __n - 1, __n)); \
+})
+
+struct cb {
+  volatile uint16_t status;
+  uint16_t cmd;
+  uint32_t link;
 };
 
-// Transmit Buffer Descriptor (TBD)
-struct e100_tbd {
-  volatile uint32_t tb_addr;
-  volatile uint16_t tb_size;
-  volatile uint16_t tb_pad;
+struct tcb {
+  struct cb cb;
+  uint32_t tbd_array_addr;
+  uint16_t tbd_byte_count;
+  uint16_t tbd_thrs;
+  uint8_t pkt_data[MAX_ETH_FRAME];
 };
 
-// Receive Frame Area (RFA)
-struct e100_rfa {
-  // Fields common to all i8255x chips.
-  volatile uint16_t rfa_status;
-  volatile uint16_t rfa_control;
-  volatile uint32_t link_addr;
-  volatile uint32_t rbd_addr;
-  volatile uint16_t actual_size;
-  volatile uint16_t size;
+struct rfd {
+  struct cb cb;
+  uint32_t reserved;
+  uint16_t actual_count;
+  uint16_t buffer_size;
+  uint8_t pkt_data[MAX_ETH_FRAME];
 };
 
-// Receive Buffer Descriptor (RBD)
-struct e100_rbd {
-  volatile uint16_t rbd_count;
-  volatile uint16_t rbd_pad0;
-  volatile uint32_t rbd_link;
-  volatile uint32_t rbd_buffer;
-  volatile uint16_t rbd_size;
-  volatile uint16_t rbd_pad1;
+struct pci_record {
+  uint32_t reg_base[6];
+  uint32_t reg_size[6];
+  uint8_t irq_line;
 };
 
-struct e100_tx_slot {
-  struct e100_cb_tx tcb;
-  struct e100_tbd tbd;
-  // Some cards require two TBD after the TCB ("Extended TCB")
-  struct e100_tbd unused;
-  uint8_t* p;
-};
+struct pci_record pcircd;
 
-struct e100_rx_slot {
-  struct e100_rfa rfd;
-  struct e100_rbd rbd;
-  uint8_t *p;
-  unsigned int offset;
-};
 
-struct e100 {
-  uint32_t iobase;
-
-  struct e100_tx_slot tx[E100_TX_SLOTS];
-  int tx_head;
-  int tx_tail;
-  char tx_idle;
-
-  struct e100_rx_slot rx[E100_RX_SLOTS];
-  int rx_head;
-  int rx_tail;
-  char rx_idle;
-};
-
+// Public Functions
+//int nic_e100_enable(struct pci_func *);
+//int nic_e100_trans_pkt(void *, uint32_t);
+//int nic_e100_recv_pkt(void *);
 
 int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr);
 
 void e1000_send(void *e1000, uint8_t* pkt, uint16_t length);
 void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length);
-void e100_intr(void);
-void udelay(unsigned int u);
+
+// TCB Command in TCB structure
+#define TCBCMD_NOP    0x0000
+#define TCBCMD_IND_ADD_SETUP  0x0001
+#define TCBCMD_CONFIGURE  0x0002
+#define TCBCMD_MUL_ADD_SETUP  0x0003
+#define TCBCMD_TRANSMIT   0x0004
+#define TCBCMD_LD_MICROCODE 0x0005
+#define TCBCMD_DUMP   0x0006
+#define TCBCMD_DIAGNOSE   0x0007
+
+// Go into Idle state after this frame is processed
+#define TCBCMD_EL   0x8000 
+// Go into Suspended state after this frame is processed
+#define TCBCMD_S    0x4000
+
+// CB Status in CB structure
+#define CBSTS_C     0x8000
+#define CBSTS_OK    0x2000
+
+// SCB Command
+
+#define SCBCMD_CU_NOP     0x0000
+#define SCBCMD_CU_START     0x0010
+#define SCBCMD_CU_RESUME    0x0020
+#define SCBCMD_CU_LOAD_COUNTER_ADD  0x0040
+#define SCBCMD_CU_DUMP_STAT_COUNTER 0x0050
+#define SCBCMD_CU_LOAD_BASE   0x0060
+#define SCBCMD_CU_DUMP_RESET_COUNTER  0x0070
+#define SCBCMD_CU_STATIC_RESUME   0x00a0
+
+#define SCBCMD_RU_NOP   0x0000
+#define SCBCMD_RU_START   0x0001
+#define SCBCMD_RU_RESUME  0x0002
+#define SCBCMD_RU_RDR   0x0003
+#define SCBCMD_RU_ABORT   0x0004
+#define SCBCMD_RU_LOAD_HDS  0x0005
+#define SCBCMD_RU_LOAD_BASE 0x0006
+
+// Enable Interrupts in SCB Command
+#define SCBINT_CX   0x8000  // CU interrupts when an action completed
+#define SCBINT_FR   0x4000  // RU interrupts when a frame is received
+#define SCBINT_CNA    0x2000  // CU interrupts when its status changed
+#define SCBINT_RNR    0x1000  // RU is not ready
+#define SCBINT_ER   0x0800  // Same with FR
+#define SCBINT_FCP    0x0400  // A flow control pause frame
+#define SCBINT_SI   0x0200  // For software interrupt
+#define SCBINT_M    0x0100  // Interrupt mask bit
+
+
+// SCB Status
+
+#define SCBSTS_CU_IDLE    0x00
+#define SCBSTS_CU_SUSP    0x40
+#define SCBSTS_CU_LPQA    0x80
+#define SCBSTS_CU_HQPA    0xc0
+
+#define SCBSTS_CU_MASK    0xC0
+
+#define SCBSTS_RU_IDLE    0x00
+#define SCBSTS_RU_SUSP    0x04
+#define SCBSTS_RU_NORES   0x08
+#define SCBSTS_RU_READY   0x10
+
+#define SCBSTS_RU_MASK    0x3C
+
+// RFD field
+#define RFD_EOF     0x8000
+#define RFD_F     0x4000
+#define RFD_LEN_MASK    0x3FFF
 
 #endif
