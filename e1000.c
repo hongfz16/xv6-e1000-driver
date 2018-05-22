@@ -330,7 +330,7 @@ static void e100_rx_start(void)
   if (the_e100.rx_idle) {
     e100_scb_wait();
     outl(the_e100.iobase + E100_CSR_SCB_GENERAL, 
-         PADDR(&the_e100.rx[i].rfd));
+         V2P(&the_e100.rx[i].rfd));
     e100_scb_cmd(E100_SCB_COMMAND_RU_START);
     the_e100.rx_idle = 0;
   } else {
@@ -339,68 +339,34 @@ static void e100_rx_start(void)
   }
 }
 
-int e100_rxbuf(struct Page *pp, unsigned int size, unsigned int offset)
+void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length)
 {
   int i;
 
   if (the_e100.rx_head - the_e100.rx_tail == E100_TX_SLOTS) {
     cprintf("e100_rxbuf: no space\n");
-    return -E_NO_MEM;
+    return;
   }
 
-  if (size <= 4) {
+  if (length <= 4) {
     cprintf("e100_rxbuf: weird size (%u)\n", size);
-    return -E_INVAL;
+    return;
   }
 
   i = the_e100.rx_head % E100_TX_SLOTS;
 
   // The first 4 bytes will hold the number of bytes recieved
-  the_e100.rx[i].rbd.rbd_buffer = page2pa(pp) + offset + 4;
-  the_e100.rx[i].rbd.rbd_size = (size - 4) & E100_SIZE_MASK;
+  the_e100.rx[i].rbd.rbd_buffer = V2P(pkt) + 4;
+  the_e100.rx[i].rbd.rbd_size = (4096 - 4) & E100_SIZE_MASK;
   the_e100.rx[i].rfd.rfa_status = 0;
   the_e100.rx[i].rfd.rfa_control = 
     E100_RFA_CONTROL_SF | E100_RFA_CONTROL_S;
 
-  pp->pp_ref++;
-  the_e100.rx[i].p = pp;
-  the_e100.rx[i].offset = offset;
+  the_e100.rx[i].p = pkt;
+  //the_e100.rx[i].offset = offset;
   the_e100.rx_head++;
 
   e100_rx_start();
-
-  return 0;
-}
-
-void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length)
-{
-  // int i;
-
-  // if (the_e100.rx_head - the_e100.rx_tail == E100_TX_SLOTS) {
-  //   cprintf("e100_rxbuf: no space\n");
-  //   return;
-  // }
-
-  // if (length <= 4) {
-  //   cprintf("e100_rxbuf: weird size (%u)\n", size);
-  //   return;
-  // }
-
-  // i = the_e100.rx_head % E100_TX_SLOTS;
-
-  // // The first 4 bytes will hold the number of bytes recieved
-  // the_e100.rx[i].rbd.rbd_buffer = page2pa(pp) + offset + 4;
-  // the_e100.rx[i].rbd.rbd_size = (size - 4) & E100_SIZE_MASK;
-  // the_e100.rx[i].rfd.rfa_status = 0;
-  // the_e100.rx[i].rfd.rfa_control = 
-  //   E100_RFA_CONTROL_SF | E100_RFA_CONTROL_S;
-
-  // pp->pp_ref++;
-  // the_e100.rx[i].p = pp;
-  // the_e100.rx[i].offset = offset;
-  // the_e100.rx_head++;
-
-  // e100_rx_start();
 
 }
 
@@ -476,6 +442,11 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr)
     the_e100.rx[i].rbd.rbd_link = V2P(&the_e100.rx[next].rbd);
     the_e100.rx[i].p=(uint8_t*)kalloc();
   }
+
+  picenable(e100_irq);
+  ioapicenable(e100_irq, 0);
+  ioapicenable(e100_irq, 1);
+
 
   return 0;
 }
