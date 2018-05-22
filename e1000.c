@@ -276,7 +276,7 @@
 struct e100 the_e100;
 
 // Each inb of port 0x84 takes about 1.25us
-static void udelay(unsigned int u)
+void udelay(unsigned int u)
 {
   unsigned int i;
   for (i = 0; i < u; i++)
