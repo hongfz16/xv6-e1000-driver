@@ -228,7 +228,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   //Receive control Register.
   uint32_t rflag=0;
   rflag|=E1000_RCTL_EN;
-  //rflag&=(~0x00000C00);
+  rflag&=(~0x00000C00);
   //rflag|=E1000_RCTL_UPE;
   //rflag|=E1000_RCTL_LBM_MAC|E1000_RCTL_LBM_SLP|E1000_RCTL_LBM_TCVR;
   //rflag|=E1000_RCTL_VFE;
