@@ -348,11 +348,6 @@ void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length)
     return;
   }
 
-  if (length <= 4) {
-    cprintf("e100_rxbuf: weird size (%u)\n", size);
-    return;
-  }
-
   i = the_e100.rx_head % E100_TX_SLOTS;
 
   // The first 4 bytes will hold the number of bytes recieved
