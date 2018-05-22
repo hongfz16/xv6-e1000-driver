@@ -613,6 +613,7 @@ nic_alloc_rfa(void)
 int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr)
 {
   return nic_e100_enable(pcif);
+  *driver=NULL;
 }
 
 int

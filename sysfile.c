@@ -484,28 +484,49 @@ sys_checknic(void)
     cprintf("Error: invalid parameter");
     return -1;
   }
-  struct e100* e100p=(struct e100*)nic_devices[0].driver;
-  uint8_t* pkt=(uint8_t*)kalloc();
-  uint16_t* length=0;
-  e1000_recv(e100p,pkt,length);
-  uint8_t old_status=inb(e100p->iobase);
+
+  void* driver=NULL;
+  uint16_t length=0;
+  uint8_t* p=(uint8_t*)kalloc();
   while(1)
   {
-    uint8_t new_status=inl(e100p->iobase);
-    udelay(10);
-    if(new_status!=old_status)
+    e1000_recv(driver,p,&length);
+    if(length>0)
     {
-      cprintf("new: 0x%x\n",new_status);
-      cprintf("old: 0x%x\n",old_status);
-      e1000_recv(e100p,pkt,length);
-      for(int i=0;i<100;++i)
+      for(int i=0;i<length;++i)
       {
-        cprintf("%x",*pkt);
-        pkt++;
+        cprintf("%x",*p);
+        ++p;
       }
       break;
     }
   }
+
+  //>>>>>>>>>>>>>>>>
+  // struct e100* e100p=(struct e100*)nic_devices[0].driver;
+  // uint8_t* pkt=(uint8_t*)kalloc();
+  // uint16_t* length=0;
+  // e1000_recv(e100p,pkt,length);
+  // uint8_t old_status=inb(e100p->iobase);
+  // while(1)
+  // {
+  //   uint8_t new_status=inl(e100p->iobase);
+  //   udelay(10);
+  //   if(new_status!=old_status)
+  //   {
+  //     cprintf("new: 0x%x\n",new_status);
+  //     cprintf("old: 0x%x\n",old_status);
+  //     e1000_recv(e100p,pkt,length);
+  //     for(int i=0;i<100;++i)
+  //     {
+  //       cprintf("%x",*pkt);
+  //       pkt++;
+  //     }
+  //     break;
+  //   }
+  // }
+  //>>>>>>>>>>>>>>>
+
 
   // struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
   // TAIL=e1000_reg_read(E1000_RDT,nic_devices[0].driver);
