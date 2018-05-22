@@ -119,7 +119,7 @@ static int e1000_attach(struct pci_func *pcif) {
 }
 
 struct pci_driver pci_attach_vendor_based[] = {
-  { 0x8086, /*0x100e*/0x1209, e1000_attach},
+  { 0x8086, 0x100e/*0x1209*/, e1000_attach},
 	{ 0, 0, 0 },
 };
 
