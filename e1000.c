@@ -264,7 +264,7 @@ void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length) {
   *length=the_e1000->rbd[i]->length;
   //pkt=&(the_e1000->rx_buf[i]->buf[0]);
   cprintf("before move");
-  memmove(pkt,(uint32_t*)(the_e1000->rbd[i]->addr_l),(uint)(*length));
+  memmove(pkt,(uint8_t*)(the_e1000->rbd[i]->addr_l),(uint)(*length));
   cprintf("after move");
   the_e1000->rbd[i]->status=0;
   cprintf("ERRORS: %x\n",the_e1000->rbd[i]->errors);
