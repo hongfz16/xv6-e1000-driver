@@ -503,6 +503,7 @@ sys_checknic(void)
         cprintf("%x",*pkt);
         pkt++;
       }
+      break;
     }
   }
 
