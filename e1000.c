@@ -131,7 +131,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   // N=128=E1000_TBD_SLOTS. i.e., the maximum number of descriptors in one ring
   struct e1000_tbd *ttmp = (struct e1000_tbd*)kalloc();
   for(int i=0;i<E1000_TBD_SLOTS;i++, ttmp++) {
-    cprintf("TBD[%d] add: %x",i,ttmp);
+    cprintf("TBD[%d] add: %x\n",i,ttmp);
     the_e1000->tbd[i] = (struct e1000_tbd*)ttmp;
     the_e1000->tbd[i]->addr = 0;
     the_e1000->tbd[i]->length=0;
