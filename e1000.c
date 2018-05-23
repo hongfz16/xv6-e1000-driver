@@ -332,7 +332,7 @@ int pci_e1000_attach(struct pci_func *pcif){
     *E1000_REG(E1000_RDLEN)=sizeof(rx_desc_table);
     for (int i=0; i<NRXDESC; i++) {
         //rx_desc_table[i].addr=page2pa(page_alloc(0))+4;
-        rx_desc_table[i].addr=P2V((void*)kalloc())+4;
+        rx_desc_table[i].addr=(uint64_t)P2V((void*)kalloc())+4;
     }
     *E1000_REG(E1000_RDT)=NRXDESC-1;
     *E1000_REG(E1000_RDH)=0;
