@@ -209,6 +209,8 @@ static uint32_t pci_conf1_data_ioport = 0x0cfc;
 // Forward declarations
 static int pci_bridge_attach(struct pci_func *pcif);
 
+#define ARRAY_SIZE(a)	(sizeof(a) / sizeof(a[0]))
+
 // PCI driver table
 struct pci_driver {
 	uint32_t key1, key2;
