@@ -103,7 +103,7 @@ int create_eth_arp_frame(uint8_t* smac, char* ipAddr, struct ethr_hdr *eth) {
 	memmove(eth->arp_smac, smac, 6);
 	pack_mac(eth->arp_dmac, dmac); //this can potentially be igored for the request
 
-	eth->sip = get_ip("192.168.1.1", strlen("192.168.1.1"));
+	eth->sip = get_ip("10.0.2.2", strlen("10.0.2.2"));
 
 	*(uint32_t*)(&eth->dip) = get_ip(ipAddr, strlen(ipAddr));
 
