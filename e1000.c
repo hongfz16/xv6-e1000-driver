@@ -196,7 +196,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   e1000_reg_write(E1000_RCV_RAL0, 0x12005452, the_e1000);
   e1000_reg_write(E1000_RCV_RAH0, 0x5634|0x80000000, the_e1000);
   e1000_reg_write(E1000_MTA,0,the_e1000);
-  e1000_reg_write(E1000_RDBAL, V2P(the_e1000->rbd[0]), the_e1000);
+  e1000_reg_write(E1000_RDBAL, V2P(&(the_e1000->rbd)), the_e1000);
   e1000_reg_write(E1000_RDBAH, 0x00000000, the_e1000);
   e1000_reg_write(E1000_RDLEN, (E1000_RBD_SLOTS*16), the_e1000);
 
@@ -206,8 +206,8 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
     //tmp++;
     the_e1000->rbd[i]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i])+4;
     the_e1000->rbd[i]->addr_h = 0;
-    cprintf("origin: %x\n",V2P((uint32_t)the_e1000->rx_buf[i]));
-    cprintf("after: %x\n",V2P((uint32_t)the_e1000->rx_buf[i])+4);
+    // cprintf("origin: %x\n",V2P((uint32_t)the_e1000->rx_buf[i]));
+    // cprintf("after: %x\n",V2P((uint32_t)the_e1000->rx_buf[i])+4);
     //the_e1000->rbd[i]->addr=(uint64_t)V2P((uint32_t)the_e1000->rx_buf[i]+4);
     //the_e1000->rx_buf[i+1] = tmp;
     //the_e1000->rbd[i+1]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i+1])+4;
@@ -244,7 +244,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
 //                  E1000_RCTL_BSIZE | 0x00000008,//|
                 //  E1000_RCTL_SECRC,
 //                the_e1000);
-cprintf("e1000:Interrupt enabled mask:0x%x\n", e1000_reg_read(E1000_IMS, the_e1000));
+//cprintf("e1000:Interrupt enabled mask:0x%x\n", e1000_reg_read(E1000_IMS, the_e1000));
   //Register interrupt handler here...
   picenable(the_e1000->irq_line);
   ioapicenable(the_e1000->irq_line, 0);
