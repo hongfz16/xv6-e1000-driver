@@ -201,7 +201,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   e1000_reg_write(E1000_RCV_RAL0, 0x12005452, the_e1000);
   e1000_reg_write(E1000_RCV_RAH0, 0x5634|0x80000000, the_e1000);
   e1000_reg_write(E1000_MTA,0,the_e1000);
-  e1000_reg_write(E1000_RDBAL, V2P(the_e1000->rbd[0]), the_e1000);
+  e1000_reg_write(E1000_RDBAL, V2P(&(the_e1000->rbd[0])), the_e1000);
   e1000_reg_write(E1000_RDBAH, 0x00000000, the_e1000);
   e1000_reg_write(E1000_RDLEN, (E1000_RBD_SLOTS*16), the_e1000);
   cprintf("RX Ring Size: %d\n",(E1000_RBD_SLOTS*16));
