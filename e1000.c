@@ -153,8 +153,8 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   for(int i=0;i<E1000_RBD_SLOTS;i++, rtmp++) {
     the_e1000->rbd[i] = (struct e1000_rbd*)rtmp;
     the_e1000->rbd[i]->status = 0;//E1000_RXD_STAT_DD;
-    the_e1000->rbd[i]->errors=0;
-    the_e1000->rbd[i]->checksum=0;
+    //the_e1000->rbd[i]->errors=0;
+    //the_e1000->rbd[i]->checksum=0;
   }
   if( (V2P(the_e1000->rbd[0]) & 0x0000000f) != 0){
     cprintf("ERROR:e1000:Receive Descriptor Ring not on paragraph boundary\n");
