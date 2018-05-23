@@ -75,7 +75,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
       break;
     } else if (pcif->reg_base[i] > 0) {
       the_e1000->membase = pcif->reg_base[i];
-      cprintf("membase set: %d",i);
+      //cprintf("membase set: %d\n",i);
       if(pcif->reg_size[i] != (1<<17)) {  // CSR is 64-byte
         panic("Mem space BAR size != 128KB");
       }
@@ -120,7 +120,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   unpack_mac(the_e1000->mac_addr, mac_str);
   mac_str[17] = 0;
 
-  cprintf("\nMAC address of the e1000 device:%s\n", mac_str);
+  cprintf("MAC address of the e1000 device:%s\n", mac_str);
 
 
   //Transmit/Receive and DMA config beyond this point...
@@ -131,6 +131,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   // N=128=E1000_TBD_SLOTS. i.e., the maximum number of descriptors in one ring
   struct e1000_tbd *ttmp = (struct e1000_tbd*)kalloc();
   for(int i=0;i<E1000_TBD_SLOTS;i++, ttmp++) {
+    cprintf("TBD[%d] add: %x",i,ttmp);
     the_e1000->tbd[i] = (struct e1000_tbd*)ttmp;
     the_e1000->tbd[i]->addr = 0;
     the_e1000->tbd[i]->length=0;
