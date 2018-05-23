@@ -341,7 +341,7 @@ int pci_e1000_attach(struct pci_func *pcif){
     uint32_t rflag=0;
     rflag|=E1000_RCTL_EN;
     rflag&=(~E1000_RCTL_DTYP_MASK);
-    rflag|=E1000_RCTL_BAM;
+    //rflag|=E1000_RCTL_BAM;
     rflag|=E1000_RCTL_SZ_2048;
     rflag|=E1000_RCTL_SECRC;
     *E1000_REG(E1000_RCTL)=rflag;
