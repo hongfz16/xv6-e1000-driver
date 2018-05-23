@@ -204,11 +204,11 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
     tmp = (struct packet_buf*)kalloc();
     the_e1000->rx_buf[i] = tmp;
     //tmp++;
-    the_e1000->rbd[i]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i])+4;
-    the_e1000->rbd[i]->addr_h = 0;
-    // cprintf("origin: %x\n",V2P((uint32_t)the_e1000->rx_buf[i]));
+    // the_e1000->rbd[i]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i])+4;
+    // the_e1000->rbd[i]->addr_h = 0;
+    // // cprintf("origin: %x\n",V2P((uint32_t)the_e1000->rx_buf[i]));
     // cprintf("after: %x\n",V2P((uint32_t)the_e1000->rx_buf[i])+4);
-    //the_e1000->rbd[i]->addr=(uint64_t)V2P((uint32_t)the_e1000->rx_buf[i]+4);
+    the_e1000->rbd[i]->addr=(uint64_t)V2P((uint32_t)the_e1000->rx_buf[i]+4);
     //the_e1000->rx_buf[i+1] = tmp;
     //the_e1000->rbd[i+1]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i+1])+4;
     //the_e1000->rbd[i+1]->addr_h = 0;
@@ -266,7 +266,7 @@ void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length) {
   *length=the_e1000->rbd[i]->length;
   //pkt=&(the_e1000->rx_buf[i]->buf[0]);
   //memmove(pkt,(uint8_t*)P2V(the_e1000->rbd[i]->addr_l),(uint)(*length));
-  memmove(pkt,P2V((uint8_t*)(the_e1000->rbd[i]->addr_l)),(uint)(*length));
+  memmove(pkt,P2V((uint8_t*)(the_e1000->rbd[i]->addr)),(uint)(*length));
   the_e1000->rbd[i]->status=0;
   cprintf("ERRORS: %x\n",the_e1000->rbd[i]->errors);
   the_e1000->rbd_tail=i;
