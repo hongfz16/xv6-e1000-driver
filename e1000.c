@@ -195,7 +195,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
                   the_e1000);
 
   the_e1000->tbd_tail=the_e1000->tbd_head=0;
-  the_e1000->rbd_tail=E1000_RBD_SLOTS-1;
+  the_e1000->rbd_tail=E1000_RBD_SLOTS-2;
   the_e1000->rbd_head=0;
                   
   e1000_reg_write(E1000_RCV_RAL0, 0x12005452, the_e1000);
@@ -277,6 +277,7 @@ void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length) {
   memmove(pkt,P2V((uint8_t*)(uint32_t)(the_e1000->rbd[i]->addr)),(uint)(*length));
   the_e1000->rbd[i]->status=0;
   cprintf("ERRORS: %x\n",the_e1000->rbd[i]->errors);
+  cprintf("CHECKSUM: %x\n",the_e1000->rbd[i]->checksum);
   the_e1000->rbd_tail=i;
 }
 
