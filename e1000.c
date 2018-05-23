@@ -383,7 +383,7 @@ int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr)
 void e1000_send(void *e1000, uint8_t* pkt, uint16_t length)
 {
   struct tx_desc td;
-  td.addr=(uint64_t)(uint32_t)pkt;
+  td.addr=(uint64_t)V2P((uint32_t)pkt);
   td.length=length;
   e1000_put_tx_desc(&td);
 }
