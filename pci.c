@@ -311,7 +311,7 @@ pci_print_func(struct pci_func *f)
 	if (PCI_CLASS(f->dev_class) < ARRAY_SIZE(pci_class))
 		class = pci_class[PCI_CLASS(f->dev_class)];
 
-	cprintf("PCI: %02x:%02x.%d: %04x:%04x: class: %x.%x (%s) irq: %d\n",
+	cprintf("PCI: %x:%x.%d: %x:%x: class: %x.%x (%s) irq: %d\n",
 		f->bus->busno, f->dev, f->func,
 		PCI_VENDOR(f->dev_id), PCI_PRODUCT(f->dev_id),
 		PCI_CLASS(f->dev_class), PCI_SUBCLASS(f->dev_class), class,
