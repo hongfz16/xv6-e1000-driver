@@ -75,11 +75,13 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
       break;
     } else if (pcif->reg_base[i] > 0) {
       the_e1000->membase = pcif->reg_base[i];
+      cprintf("membase set: %d",i);
       if(pcif->reg_size[i] != (1<<17)) {  // CSR is 64-byte
         panic("Mem space BAR size != 128KB");
       }
     }
   }
+
   if (!the_e1000->iobase)
     panic("Fail to find a valid I/O port base for E1000.");
   if (!the_e1000->membase)
