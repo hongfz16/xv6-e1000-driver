@@ -10,6 +10,9 @@
 #include "nic.h"
 #include "pci.h"
 
+#define E1000_VENDOR 0x8086
+#define E1000_DEVICE 0x100E
+
 #define E1000_RBD_SLOTS			128
 #define E1000_TBD_SLOTS			128
 

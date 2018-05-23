@@ -109,7 +109,7 @@
 // }
 
 static int e1000_attach(struct pci_func *pcif) {
-	pci_enable_device(pcif);
+	pci_func_enable(pcif);
 	struct nic_device nd;
 	e1000_init(pcif, &nd.driver, nd.mac_addr);
 	nd.send_packet = e1000_send;
@@ -234,11 +234,11 @@ pci_conf1_set_addr(uint32_t bus,
 		   uint32_t func,
 		   uint32_t offset)
 {
-	assert(bus < 256);
-	assert(dev < 32);
-	assert(func < 8);
-	assert(offset < 256);
-	assert((offset & 0x3) == 0);
+	// assert(bus < 256);
+	// assert(dev < 32);
+	// assert(func < 8);
+	// assert(offset < 256);
+	// assert((offset & 0x3) == 0);
 
 	uint32_t v = (1 << 31) |		// config-space
 		(bus << 16) | (dev << 11) | (func << 8) | (offset);
