@@ -534,27 +534,27 @@ sys_checknic(void)
   // cprintf("TAIL : %x\n",TAIL);
   //HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
   // cprintf("HEAD : %x\n",HEAD);
-  uint8_t* p=P2V((uint8_t*)(uint32_t)e1000p->rbd[0]->addr);
-  for(int i=0;i<60;++i)
-  {
-    cprintf("%x",*p);
-    ++p;
-  }
-  //>>>>>>>>>>>>>>>
-  // uint8_t* p=(uint8_t*)kalloc();
-  // uint16_t length=0;
-  // while(1)
+  // uint8_t* p=P2V((uint8_t*)(uint32_t)e1000p->rbd[0]->addr);
+  // for(int i=0;i<60;++i)
   // {
-  //   e1000_recv(e1000p,p,&length);
-  //   if(length!=0)
-  //   {
-  //     for(int i=0;i<length;++i)
-  //     {
-  //       cprintf("%x",*p);
-  //       ++p;
-  //     }
-  //     cprintf("\n");
-  //   }
+  //   cprintf("%x",*p);
+  //   ++p;
+  // }
+  //>>>>>>>>>>>>>>>
+  uint8_t* p=(uint8_t*)kalloc();
+  uint16_t length=0;
+  while(1)
+  {
+    e1000_recv(e1000p,p,&length);
+    if(length!=0)
+    {
+      for(int i=0;i<length;++i)
+      {
+        cprintf("%x",*p);
+        ++p;
+      }
+      cprintf("\n");
+    }
   //>>>>>>>>>>>>>>
     // HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
     // if((TAIL+1)%128==HEAD)
