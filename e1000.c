@@ -131,7 +131,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   // N=128=E1000_TBD_SLOTS. i.e., the maximum number of descriptors in one ring
   struct e1000_tbd *ttmp = (struct e1000_tbd*)kalloc();
   for(int i=0;i<E1000_TBD_SLOTS;i++, ttmp++) {
-    cprintf("TBD[%d] add: %x\n",i,ttmp);
+    //cprintf("TBD[%d] add: %x\n",i,ttmp);
     the_e1000->tbd[i] = (struct e1000_tbd*)ttmp;
     the_e1000->tbd[i]->addr = 0;
     the_e1000->tbd[i]->length=0;
@@ -152,7 +152,7 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
   struct e1000_rbd *rtmp = (struct e1000_rbd*)kalloc();
   for(int i=0;i<E1000_RBD_SLOTS;i++, rtmp++) {
     the_e1000->rbd[i] = (struct e1000_rbd*)rtmp;
-    the_e1000->rbd[i]->status = E1000_RXD_STAT_DD;
+    the_e1000->rbd[i]->status = 0;//E1000_RXD_STAT_DD;
   }
   if( (V2P(the_e1000->rbd[0]) & 0x0000000f) != 0){
     cprintf("ERROR:e1000:Receive Descriptor Ring not on paragraph boundary\n");
