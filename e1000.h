@@ -32,8 +32,8 @@
 // #define E1000_CNTRL_SLU_MASK      0x00000040
 
 
-// #define E1000_CNTRL_RST_BIT(cntrl) \
-//         (cntrl & E1000_CNTRL_RST_MASK)
+#define E1000_CNTRL_RST_BIT(cntrl) \
+        (cntrl & E1000_CNTRL_RST_MASK)
 
 // /**
 //  * Ethernet Device registers
@@ -60,12 +60,12 @@
 // #define E1000_TCTL_PSP            0x00000008
 // #define E1000_TCTL_CT_BIT_MASK    0x00000ff0
 // #define E1000_TCTL_CT_BIT_SHIFT   4
-// #define E1000_TCTL_CT_SET(value) \
-//         ((value << E1000_TCTL_CT_BIT_SHIFT) & E1000_TCTL_CT_BIT_MASK)
-// #define E1000_TCTL_COLD_BIT_MASK  0x003ff000
-// #define E1000_TCTL_COLD_BIT_SHIFT 12
-// #define E1000_TCTL_COLD_SET(value) \
-//         ((value << E1000_TCTL_COLD_BIT_SHIFT) & E1000_TCTL_COLD_BIT_MASK)
+#define E1000_TCTL_CT_SET(value) \
+        ((value << E1000_TCTL_CT_BIT_SHIFT) & E1000_TCTL_CT_BIT_MASK)
+#define E1000_TCTL_COLD_BIT_MASK  0x003ff000
+#define E1000_TCTL_COLD_BIT_SHIFT 12
+#define E1000_TCTL_COLD_SET(value) \
+        ((value << E1000_TCTL_COLD_BIT_SHIFT) & E1000_TCTL_COLD_BIT_MASK)
 
 // /**
 //  * Ethernet Device Transmission Inter-Packet Gap register
@@ -74,16 +74,16 @@
 
 // #define E1000_TIPG_IPGT_BIT_MASK    0x000003ff
 // #define E1000_TIPG_IPGT_BIT_SHIFT   0
-// #define E1000_TIPG_IPGT_SET(value) \
-//         ((value << E1000_TIPG_IPGT_BIT_SHIFT) & E1000_TIPG_IPGT_BIT_MASK)
-// #define E1000_TIPG_IPGR1_BIT_MASK   0x000ffc00
-// #define E1000_TIPG_IPGR1_BIT_SHIFT   10
-// #define E1000_TIPG_IPGR1_SET(value) \
-//         ((value << E1000_TIPG_IPGR1_BIT_SHIFT) & E1000_TIPG_IPGR1_BIT_MASK)
-// #define E1000_TIPG_IPGR2_BIT_MASK   0x3ff00000
-// #define E1000_TIPG_IPGR2_BIT_SHIFT   20
-// #define E1000_TIPG_IPGR2_SET(value) \
-//         ((value << E1000_TIPG_IPGR2_BIT_SHIFT) & E1000_TIPG_IPGR2_BIT_MASK)
+#define E1000_TIPG_IPGT_SET(value) \
+        ((value << E1000_TIPG_IPGT_BIT_SHIFT) & E1000_TIPG_IPGT_BIT_MASK)
+#define E1000_TIPG_IPGR1_BIT_MASK   0x000ffc00
+#define E1000_TIPG_IPGR1_BIT_SHIFT   10
+#define E1000_TIPG_IPGR1_SET(value) \
+        ((value << E1000_TIPG_IPGR1_BIT_SHIFT) & E1000_TIPG_IPGR1_BIT_MASK)
+#define E1000_TIPG_IPGR2_BIT_MASK   0x3ff00000
+#define E1000_TIPG_IPGR2_BIT_SHIFT   20
+#define E1000_TIPG_IPGR2_SET(value) \
+        ((value << E1000_TIPG_IPGR2_BIT_SHIFT) & E1000_TIPG_IPGR2_BIT_MASK)
 
 // /**
 // * Ethernet Device Interrupt Mast Set registers
@@ -125,8 +125,8 @@
 //  * Ethernet Device Transmit Descriptor Status Field
 //  */
 // #define E1000_TDESC_STATUS_DONE_MASK   0x01
-// #define E1000_TDESC_STATUS_DONE(status) \
-//         (status & E1000_TDESC_STATUS_DONE_MASK)
+#define E1000_TDESC_STATUS_DONE(status) \
+        (status & E1000_TDESC_STATUS_DONE_MASK)
 
 // /**
 //   * Ethernet Device EEPROM registers
@@ -140,14 +140,14 @@
 // #define E1000_EERD_DATA_BIT_SHIFT   16
 // #define E1000_EERD_DONE_BIT_MASK    0x00000010
 
-// #define E1000_EERD_ADDR(addr) \
-//         ((addr << E1000_EERD_ADDR_BIT_SHIFT) & E1000_EERD_ADDR_BIT_MASK)
+#define E1000_EERD_ADDR(addr) \
+        ((addr << E1000_EERD_ADDR_BIT_SHIFT) & E1000_EERD_ADDR_BIT_MASK)
 
-// #define E1000_EERD_DATA(eerd) \
-//         (eerd >> E1000_EERD_DATA_BIT_SHIFT)
+#define E1000_EERD_DATA(eerd) \
+        (eerd >> E1000_EERD_DATA_BIT_SHIFT)
 
-// #define E1000_EERD_DONE(eerd) \
-//         (eerd & E1000_EERD_DONE_BIT_MASK)
+#define E1000_EERD_DONE(eerd) \
+        (eerd & E1000_EERD_DONE_BIT_MASK)
 
 // /**
 //  * EEPROM Address Map
