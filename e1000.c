@@ -391,7 +391,16 @@ void e1000_send(void *e1000, uint8_t* pkt, uint16_t length)
 
 void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length)
 {
-
+  struct rx_desc rd;
+  if(e1000_get_rx_desc(&rd)==0)
+  {
+    *length=rd.length;
+    memmove(pkt,(uint8_t*)P2V((uint32_t*)(uint32_t)rd.addr),length);
+  }
+  else
+  {
+    *length=0;
+  }
 }
 
 ///>>>>>>>>>>>>>>>>>>>>>>>>>>
