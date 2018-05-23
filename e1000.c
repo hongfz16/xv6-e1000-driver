@@ -86,8 +86,8 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
     panic("Fail to find a valid Mem I/O base for E1000.");
 
 	the_e1000->irq_line = pcif->irq_line;
-  the_e1000->irq_pin = pcif->irq_pin;
-  cprintf("e1000 init: interrupt pin=%d and line:%d\n",the_e1000->irq_pin,the_e1000->irq_line);
+  //the_e1000->irq_pin = pcif->irq_pin;
+  //cprintf("e1000 init: interrupt pin=%d and line:%d\n",the_e1000->irq_pin,the_e1000->irq_line);
   the_e1000->tbd_head = the_e1000->tbd_tail = 0;
   the_e1000->rbd_head = the_e1000->rbd_tail = 0;
 
