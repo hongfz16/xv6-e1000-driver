@@ -222,8 +222,8 @@ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
 
   // e1000_reg_write(E1000_RDT, E1000_RBD_SLOTS-1, the_e1000);
   // e1000_reg_write(E1000_RDH, 0x00000000, the_e1000);
-  e1000_reg_write(E1000_RDT, P2V(the_e1000->rbd[E1000_RBD_SLOTS-2]), the_e1000);
-  e1000_reg_write(E1000_RDH, P2V(the_e1000->rbd[0]), the_e1000);
+  e1000_reg_write(E1000_RDT, P2V(&(the_e1000->rbd[E1000_RBD_SLOTS-2])), the_e1000);
+  e1000_reg_write(E1000_RDH, P2V(&(the_e1000->rbd[0])), the_e1000);
 
   //e1000_reg_write(E1000_MANC,E1000_MANC_ARP_EN|E1000_MANC_ARP_RES_EN,the_e1000);
 
