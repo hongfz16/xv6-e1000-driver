@@ -290,7 +290,7 @@ int pci_e1000_attach(struct pci_func *pcif){
     
     //exercise4
     //e1000=mmio_map_region(pcif->reg_base[0],pcif->reg_size[0]);
-    e1000=pcif->reg_base[0];
+    e1000=(uint32_t*)pcif->reg_base[0];
     //cprintf("E1000_ADDR=%x\n",e1000);
     
     //exercise5 transmit
@@ -303,7 +303,7 @@ int pci_e1000_attach(struct pci_func *pcif){
         tx_desc_table[i].css=0;
         tx_desc_table[i].special=0;
     }
-    *E1000_REG(E1000_TDBAL)=PADDR(tx_desc_table);
+    *E1000_REG(E1000_TDBAL)=V2P(tx_desc_table);
     *E1000_REG(E1000_TDBAH)=0;
     *E1000_REG(E1000_TDLEN)=sizeof(tx_desc_table);
     *E1000_REG(E1000_TDH)=0;
@@ -327,11 +327,12 @@ int pci_e1000_attach(struct pci_func *pcif){
     //receive
     *E1000_REG(E1000_RAL)=0x12005452;
     *E1000_REG(E1000_RAH)=0x5634|E1000_RAH_AV;
-    *E1000_REG(E1000_RDBAL)=PADDR(rx_desc_table);
+    *E1000_REG(E1000_RDBAL)=V2P(rx_desc_table);
     *E1000_REG(E1000_RDBAH)=0;
     *E1000_REG(E1000_RDLEN)=sizeof(rx_desc_table);
     for (int i=0; i<NRXDESC; i++) {
-        rx_desc_table[i].addr=page2pa(page_alloc(0))+4;
+        //rx_desc_table[i].addr=page2pa(page_alloc(0))+4;
+        rx_desc_table[i].addr=P2V((void*)kalloc())+4;
     }
     *E1000_REG(E1000_RDT)=NRXDESC-1;
     *E1000_REG(E1000_RDH)=0;
@@ -389,7 +390,7 @@ void e1000_send(void *e1000, uint8_t* pkt, uint16_t length)
 
 void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length)
 {
-  
+
 }
 
 ///>>>>>>>>>>>>>>>>>>>>>>>>>>
