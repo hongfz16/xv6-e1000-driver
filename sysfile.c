@@ -572,7 +572,7 @@ sys_checknic(void)
     // {
     //   cprintf("%x",pbp->buf[i]);
     // }
-  }
+  
 
 
   // struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
