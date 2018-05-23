@@ -395,7 +395,7 @@ void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length)
   if(e1000_get_rx_desc(&rd)==0)
   {
     *length=rd.length;
-    memmove(pkt,(uint8_t*)P2V((uint32_t*)(uint32_t)rd.addr),length);
+    memmove(pkt,(uint8_t*)P2V((uint32_t*)(uint32_t)rd.addr),*length);
   }
   else
   {
