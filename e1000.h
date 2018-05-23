@@ -198,6 +198,7 @@
 #define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
 #define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
 
+//#define E1000_MTA               0x05200
 
 // #define E1000_REG(i) (e1000+i/4)
 
