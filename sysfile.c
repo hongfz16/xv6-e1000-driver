@@ -533,7 +533,7 @@ sys_checknic(void)
   // cprintf("TAIL : %x\n",TAIL);
   //HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
   // cprintf("HEAD : %x\n",HEAD);
-  uint8_t* p=(uint8_t*)(uint32_t)e1000p->rbd[0]->addr;
+  uint8_t* p=P2V((uint8_t*)(uint32_t)e1000p->rbd[0]->addr);
   for(int i=0;i<60;++i)
   {
     cprintf("%x",*p);
