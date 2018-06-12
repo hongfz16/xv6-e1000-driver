@@ -1,4 +1,11 @@
 # E1000 Driver for xv6
+## 2018.6.12 Log
+- Finished: Receive & Transmit packages
+- Test Method:
+	- Receive: Use `checknic` command in xv6 system. Use `nc localhost 26003` in your host machine. Then xv6 will print the package content.
+	- Transmit: Support ARP package transmit. Use `arptest` command in xv6 system and a ARP will be transmitted to your host machine.
+	- Use `tcpdump -XXnr qemu.pcap` to see the packages detected by QEMU.
+
 ## 2018.5.13 Log
 - Finished: Basic structure of e1000 driver; Transmit packages;
 - Bugs: Receive packages error(CRC Error); Do not trigger E1000_DEBUG filter info;

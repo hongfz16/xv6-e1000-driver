@@ -466,14 +466,6 @@ sys_arp(void)
   return 0;
 }
 
-// static uint32_t e1000_reg_read(uint32_t reg_addr, struct e1000 *the_e1000)
-// {
-//   uint32_t value = *(uint32_t*)(the_e1000->membase + reg_addr);
-//   //cprintf("Read value 0x%x from E1000 I/O port 0x%x\n", value, reg_addr);
-
-//   return value;
-// }
-
 int
 sys_checknic(void)
 {
@@ -485,62 +477,7 @@ sys_checknic(void)
     cprintf("Error: invalid parameter");
     return -1;
   }
-
-  // void* driver=0;
-  // uint16_t length=0;
-  // uint8_t* p=(uint8_t*)kalloc();
-  // while(1)
-  // {
-  //   e1000_recv(driver,p,&length);
-  //   if(length>0)
-  //   {
-  //     for(int i=0;i<length;++i)
-  //     {
-  //       cprintf("%x",*p);
-  //       ++p;
-  //     }
-  //     break;
-  //   }
-  // }
-
-  //>>>>>>>>>>>>>>>>
-  // struct e100* e100p=(struct e100*)nic_devices[0].driver;
-  // uint8_t* pkt=(uint8_t*)kalloc();
-  // uint16_t* length=0;
-  // e1000_recv(e100p,pkt,length);
-  // uint8_t old_status=inb(e100p->iobase);
-  // while(1)
-  // {
-  //   uint8_t new_status=inl(e100p->iobase);
-  //   udelay(10);
-  //   if(new_status!=old_status)
-  //   {
-  //     cprintf("new: 0x%x\n",new_status);
-  //     cprintf("old: 0x%x\n",old_status);
-  //     e1000_recv(e100p,pkt,length);
-  //     for(int i=0;i<100;++i)
-  //     {
-  //       cprintf("%x",*pkt);
-  //       pkt++;
-  //     }
-  //     break;
-  //   }
-  // }
-  //>>>>>>>>>>>>>>>
-
-
   struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
-  //TAIL=e1000_reg_read(E1000_RDT,nic_devices[0].driver);
-  // cprintf("TAIL : %x\n",TAIL);
-  //HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
-  // cprintf("HEAD : %x\n",HEAD);
-  // uint8_t* p=P2V((uint8_t*)(uint32_t)e1000p->rbd[0]->addr);
-  // for(int i=0;i<60;++i)
-  // {
-  //   cprintf("%x",*p);
-  //   ++p;
-  // }
-  //>>>>>>>>>>>>>>>
   uint8_t* p=(uint8_t*)kalloc();
   uint16_t length=0;
   while(1)
@@ -556,44 +493,5 @@ sys_checknic(void)
       cprintf("\n");
     }
   }
-  //>>>>>>>>>>>>>>
-    // HEAD=e1000_reg_read(E1000_RDH,nic_devices[0].driver);
-    // if((TAIL+1)%128==HEAD)
-    //   continue;
-    // TAIL=(TAIL+1)%128;
-    // while(!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_DD )||!(e1000p->rbd[TAIL]->status&E1000_RXD_STAT_EOP)){}
-    // cprintf("TAIL : %x\n",TAIL);
-    // cprintf("HEAD : %x\n",HEAD);
-    // struct e1000_rbd* rbdp=e1000p->rbd[TAIL];
-    // cprintf("LENGTH : %x\n",rbdp->length);
-    // cprintf("STATUS : %x\n",rbdp->status);
-    // cprintf("ERROR : %x\n",rbdp->errors);
-    // cprintf("CHECKSUM : %x\n",rbdp->checksum);
-    // struct packet_buf* pbp=e1000p->rx_buf[TAIL];
-    // for(int i=0;i<2046;++i)
-    // {
-    //   cprintf("%x",pbp->buf[i]);
-    // }
-  
-
-
-  // struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
-  // cprintf("HEAD: %x\n",e1000p->rbd_head);
-  // cprintf("TAIL: %x\n",e1000p->rbd_tail);
-
-  // ddreg=e1000_reg_read(E1000_TDT, nic_devices[0].driver)&0x00000001;
-  // old_reg=ddreg;
-  // cprintf("%x",&ddreg);
-  // while(1)
-  // {
-  //     ddreg=e1000_reg_read(E1000_TDT, nic_devices[0].driver)&0x00000001;
-  //     if(old_reg!=ddreg)
-  //     {
-  //         if(ddreg==1)
-  //             cprintf("1");
-  //         else
-  //             cprintf("0");
-  //     }
-  // }
   return 0;
 }
