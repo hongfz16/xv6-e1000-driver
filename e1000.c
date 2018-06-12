@@ -9,6 +9,7 @@ int pci_e1000_attach(struct pci_func *pcif){
 
     e1000=(uint32_t*)pcif->reg_base[0];
 
+    // Allocate transmit ring
     for (int i=0; i<NTXDESC; i++) {
         tx_desc_table[i].addr=0;
         tx_desc_table[i].length=0;
@@ -18,36 +19,37 @@ int pci_e1000_attach(struct pci_func *pcif){
         tx_desc_table[i].css=0;
         tx_desc_table[i].special=0;
     }
-    *E1000_REG(E1000_TDBAL)=V2P(tx_desc_table);
-    *E1000_REG(E1000_TDBAH)=0;
-    *E1000_REG(E1000_TDLEN)=sizeof(tx_desc_table);
-    *E1000_REG(E1000_TDH)=0;
-    *E1000_REG(E1000_TDT)=0;
-    tdt=E1000_REG(E1000_TDT);
+
+    //Set up transmit registers
+    *SET_E1000_REG(E1000_TDBAL)=V2P(tx_desc_table);
+    *SET_E1000_REG(E1000_TDBAH)=0;
+    *SET_E1000_REG(E1000_TDLEN)=sizeof(tx_desc_table);
+    *SET_E1000_REG(E1000_TDH)=0;
+    *SET_E1000_REG(E1000_TDT)=0;
+    tdt=GET_E1000_REG(E1000_TDT);
     
     uint32_t tctl=0x0004010A;
-    *E1000_REG(E1000_TCTL)=tctl;
+    *SET_E1000_REG(E1000_TCTL)=tctl;
     uint32_t tpg=0;
     tpg=10;
     tpg|=4<<10;
     tpg|=6<<20;
     tpg&=0x3FFFFFFF;
+    *SET_E1000_REG(E1000_TIPG)=tpg;
     
-    *E1000_REG(E1000_TIPG)=tpg;
     
-    
-    //receive
-    *E1000_REG(E1000_RAL)=0x12005452;
-    *E1000_REG(E1000_RAH)=0x5634|E1000_RAH_AV;
-    *E1000_REG(E1000_RDBAL)=V2P(rx_desc_table);
-    *E1000_REG(E1000_RDBAH)=0;
-    *E1000_REG(E1000_RDLEN)=sizeof(rx_desc_table);
+    //Set up receive registers
+    *SET_E1000_REG(E1000_RAL)=0x12005452;
+    *SET_E1000_REG(E1000_RAH)=0x5634|E1000_RAH_AV;
+    *SET_E1000_REG(E1000_RDBAL)=V2P(rx_desc_table);
+    *SET_E1000_REG(E1000_RDBAH)=0;
+    *SET_E1000_REG(E1000_RDLEN)=sizeof(rx_desc_table);
     for (int i=0; i<NRXDESC; i++) {
         rx_desc_table[i].addr=(uint64_t)(uint32_t)P2V((void*)kalloc())+4;
     }
-    *E1000_REG(E1000_RDT)=NRXDESC-1;
-    *E1000_REG(E1000_RDH)=0;
-    rdt=E1000_REG(E1000_RDT);
+    *SET_E1000_REG(E1000_RDT)=NRXDESC-1;
+    *SET_E1000_REG(E1000_RDH)=0;
+    rdt=GET_E1000_REG(E1000_RDT);
     
     uint32_t rflag=0;
     rflag|=E1000_RCTL_EN;
@@ -55,11 +57,12 @@ int pci_e1000_attach(struct pci_func *pcif){
     rflag|=E1000_RCTL_BAM;
     rflag|=E1000_RCTL_SZ_2048;
     rflag|=E1000_RCTL_SECRC;
-    *E1000_REG(E1000_RCTL)=rflag;
+    *SET_E1000_REG(E1000_RCTL)=rflag;
     
     return 0;
 }
 
+//Put transmit descriptor to transmit ring
 int e1000_put_tx_desc(struct tx_desc *td) {
     struct tx_desc *tail=tx_desc_table+(*tdt);
     if (!(tail->status&E1000_TXD_STAT_DD)) {
@@ -70,6 +73,7 @@ int e1000_put_tx_desc(struct tx_desc *td) {
     return 0;
 }
 
+//Get receive descriptor from receive ring
 int e1000_get_rx_desc(struct rx_desc *rd) {
     int i=(*rdt+1)&(NRXDESC-1);
     if (!(rx_desc_table[i].status&E1000_RXD_STAT_DD )||!(rx_desc_table[i].status&E1000_RXD_STAT_EOP)) {

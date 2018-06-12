@@ -72,7 +72,8 @@
 #define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
 
 
-#define E1000_REG(i) (e1000+i/4)
+#define SET_E1000_REG(i) (e1000+i/4)
+#define GET_E1000_REG(i) (e1000+i/4)
 
 struct tx_desc{
     uint64_t addr;
@@ -104,15 +105,4 @@ int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr);
 void e1000_send(void *e1000, uint8_t* pkt, uint16_t length);
 void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length);
 
-#define ROUNDDOWN(a, n)           \
-({                \
-  uint32_t __a = (uint32_t) (a);        \
-  (typeof(a)) (__a - __a % (n));        \
-})
-// Round up to the nearest multiple of n
-#define ROUNDUP(a, n)           \
-({                \
-  uint32_t __n = (uint32_t) (n);        \
-  (typeof(a)) (ROUNDDOWN((uint32_t) (a) + __n - 1, __n)); \
-})
 #endif

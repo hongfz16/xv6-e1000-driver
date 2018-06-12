@@ -12,12 +12,11 @@ static int e1000_attach(struct pci_func *pcif) {
 	nd.send_packet = e1000_send;
 	nd.recv_packet = e1000_recv;
 	register_device(nd);
-  return 0;
+  	return 0;
 }
 
 // Flag to do "lspci" at bootup
 static int pci_show_devs = 1;
-static int pci_show_addrs = 0;
 
 // PCI "configuration mechanism one"
 static uint32_t pci_conf1_addr_ioport = 0x0cf8;
@@ -76,7 +75,7 @@ static int __attribute__((warn_unused_result))
 pci_attach_match(uint32_t key1, uint32_t key2,
 		 struct pci_driver *list, struct pci_func *pcif)
 {
-	uint32_t i;
+	uint32_t i=0;
 
 	for (i = 0; list[i].attachfn; i++) {
 		if (list[i].key1 == key1 && list[i].key2 == key2) {
@@ -219,21 +218,18 @@ pci_func_enable(struct pci_func *f)
 
 		int regnum = PCI_MAPREG_NUM(bar);
 		uint32_t base, size;
-		if (PCI_MAPREG_TYPE(rv) == PCI_MAPREG_TYPE_MEM) {
+		if (PCI_MAPREG_TYPE(rv) == PCI_MAPREG_TYPE_MEM)
+		{
 			if (PCI_MAPREG_MEM_TYPE(rv) == PCI_MAPREG_MEM_TYPE_64BIT)
 				bar_width = 8;
 
 			size = PCI_MAPREG_MEM_SIZE(rv);
 			base = PCI_MAPREG_MEM_ADDR(oldv);
-			if (pci_show_addrs)
-				cprintf("  mem region %d: %d bytes at 0x%x\n",
-					regnum, size, base);
-		} else {
+		}
+		else
+		{
 			size = PCI_MAPREG_IO_SIZE(rv);
 			base = PCI_MAPREG_IO_ADDR(oldv);
-			if (pci_show_addrs)
-				cprintf("  io region %d: %d bytes at 0x%x\n",
-					regnum, size, base);
 		}
 
 		pci_conf_write(f, bar, oldv);
