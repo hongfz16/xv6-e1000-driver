@@ -80,7 +80,7 @@
 	- arp数据的结构如下
 	![arpframe](./arpframe.png)
 	- icmp数据的结构如下
-	![icmpframe](./icmpframe.png)
+	![icmpframe](./icmp.png)
 	- 以太网报头的结构如下
 	![etnhdr](./etnhdr.png)
 	- ip报头的结构如下
