@@ -1,0 +1,3097 @@
+From 786bf9f10a6d698aef3c6550066815c82ac5ccca Mon Sep 17 00:00:00 2001
+From: hongfz <hongfz16@163.com>
+Date: Fri, 29 Jun 2018 21:41:10 +0800
+Subject: [PATCH] to patch
+
+---
+ Makefile       |  18 +-
+ README         |  16 ++
+ arp.c          |  20 ++
+ arp_frame.c    | 224 +++++++++++++++
+ arp_frame.h    |  25 ++
+ arptest.c      |  13 +
+ bootasm.S      |  28 ++
+ bootmain.c     |  19 +-
+ checknic.c     |  12 +
+ cuth           |   0
+ defs.h         |   3 +
+ dot-bochsrc    |   0
+ dump           |   7 +
+ e1000.c        | 279 +++++++++++++++++++
+ e1000.h        | 222 +++++++++++++++
+ icmptest.c     |  11 +
+ main.c         |   2 +
+ nic.c          |  23 ++
+ nic.h          |  27 ++
+ pci.c          | 287 +++++++++++++++++++
+ pci.h          |  38 +++
+ pciregisters.h | 862 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ picirq.c       |  75 +++++
+ printpcs       |   0
+ qemu.pcap      | Bin 0 -> 162 bytes
+ runoff         |   0
+ runoff1        |   0
+ show1          |   0
+ spinp          |   0
+ syscall.c      |   6 +
+ syscall.h      |   3 +
+ sysfile.c      | 233 ++++++++++++++++
+ trap.c         |   8 +
+ traps.h        |   1 +
+ types.h        |   9 +
+ user.h         |  10 +
+ usys.S         |   3 +
+ util.c         |  27 ++
+ util.h         |  12 +
+ x86.h          |  23 ++
+ 40 files changed, 2536 insertions(+), 10 deletions(-)
+ create mode 100644 arp.c
+ create mode 100644 arp_frame.c
+ create mode 100644 arp_frame.h
+ create mode 100644 arptest.c
+ create mode 100644 checknic.c
+ mode change 100755 => 100644 cuth
+ mode change 100755 => 100644 dot-bochsrc
+ create mode 100644 dump
+ create mode 100644 e1000.c
+ create mode 100644 e1000.h
+ create mode 100644 icmptest.c
+ create mode 100644 nic.c
+ create mode 100644 nic.h
+ create mode 100644 pci.c
+ create mode 100644 pci.h
+ create mode 100644 pciregisters.h
+ mode change 100755 => 100644 printpcs
+ create mode 100644 qemu.pcap
+ mode change 100755 => 100644 runoff
+ mode change 100755 => 100644 runoff1
+ mode change 100755 => 100644 show1
+ mode change 100755 => 100644 spinp
+ create mode 100644 util.c
+ create mode 100644 util.h
+
+diff --git a/Makefile b/Makefile
+index 06eea5d..2b1d37b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -27,6 +27,12 @@ OBJS = \
+ 	uart.o\
+ 	vectors.o\
+ 	vm.o\
++	arp.o\
++	arp_frame.o\
++	pci.o\
++	nic.o\
++	e1000.o\
++	util.o\
+ 
+ # Cross-compiling (e.g., on Mac OS X)
+ # TOOLPREFIX = i386-jos-elf
+@@ -51,7 +57,7 @@ TOOLPREFIX := $(shell if i386-jos-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/d
+ endif
+ 
+ # If the makefile can't find QEMU, specify its path here
+-# QEMU = qemu-system-i386
++QEMU = qemu-system-i386
+ 
+ # Try to infer the correct QEMU
+ ifndef QEMU
+@@ -76,7 +82,7 @@ AS = $(TOOLPREFIX)gas
+ LD = $(TOOLPREFIX)ld
+ OBJCOPY = $(TOOLPREFIX)objcopy
+ OBJDUMP = $(TOOLPREFIX)objdump
+-CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -O2 -Wall -MD -ggdb -m32 -Werror -fno-omit-frame-pointer
++CFLAGS = -D E1000_DEBUG=TX -fno-pic -static -fno-builtin -fno-strict-aliasing -O2 -Wall -MD -ggdb -m32 -Werror -fno-omit-frame-pointer
+ #CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -fvar-tracking -fvar-tracking-assignments -O0 -g -Wall -MD -gdwarf-2 -m32 -Werror -fno-omit-frame-pointer
+ CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+ ASFLAGS = -m32 -gdwarf-2 -Wa,-divide
+@@ -159,6 +165,8 @@ mkfs: mkfs.c fs.h
+ .PRECIOUS: %.o
+ 
+ UPROGS=\
++	_checknic\
++	_arptest\
+ 	_cat\
+ 	_echo\
+ 	_forktest\
+@@ -174,6 +182,7 @@ UPROGS=\
+ 	_usertests\
+ 	_wc\
+ 	_zombie\
++	_icmptest\
+ 
+ fs.img: mkfs README $(UPROGS)
+ 	./mkfs fs.img README $(UPROGS)
+@@ -212,8 +221,11 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
+ ifndef CPUS
+ CPUS := 2
+ endif
+-QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
+ 
++NIC=e1000 #i82559er
++PORT=26003
++QEMUEXTRA += -redir tcp:$(PORT)::7 -redir udp:$(PORT)::7 -net dump,file=qemu.pcap
++QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 -net user -net nic,model=$(NIC) $(QEMUEXTRA)
+ qemu: fs.img xv6.img
+ 	$(QEMU) -serial mon:stdio $(QEMUOPTS)
+ 
+diff --git a/README b/README
+index b82e8d2..7000559 100644
+--- a/README
++++ b/README
+@@ -1,3 +1,19 @@
++# E1000 Driver for xv6
++## 2018.5.13 Log
++- Finished: Basic structure of e1000 driver; Transmit packages;
++- Bugs: Receive packages error(CRC Error); Do not trigger E1000_DEBUG filter info;
++
++## Reference
++- [MIT 6.828 Lab6](https://pdos.csail.mit.edu/6.828/2011/labs/lab6/)
++- [E1000 Datasheet](https://pdos.csail.mit.edu/6.828/2011/readings/hardware/8254x_GBe_SDM.pdf)
++- [E1000 Definitions](https://pdos.csail.mit.edu/6.828/2011/labs/lab6/e1000_hw.h)
++
++## Other possibly helping git repos
++- [RickWei/jos_lab](https://github.com/RickWei/jos_lab)
++- [vibhorvatsa/xv6-networking-stack](https://github.com/vibhorvatsa/xv6-networking-stack)
++- [s-shin/xv6-network](https://github.com/s-shin/xv6-network)
++
++## Old Readme
+ xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
+ Version 6 (v6).  xv6 loosely follows the structure and style of v6,
+ but is implemented for a modern x86-based multiprocessor using ANSI C.
+diff --git a/arp.c b/arp.c
+new file mode 100644
+index 0000000..5a696c4
+--- /dev/null
++++ b/arp.c
+@@ -0,0 +1,20 @@
++#include "types.h"
++#include "defs.h"
++#include "arp_frame.h"
++#include "nic.h"
++#include "e1000.h"
++
++
++int send_arpRequest(char* interface, char* ipAddr, char* arpResp) {
++  cprintf("Create arp request for ip:%s over Interface:%s\n", ipAddr, interface);
++  struct nic_device *nd;
++  if(get_device(interface, &nd) < 0) {
++    cprintf("ERROR:send_arpRequest:Device not loaded\n");
++    return -1;
++  }
++
++  struct ethr_hdr eth;
++  create_eth_arp_frame(nd->mac_addr, ipAddr, &eth);
++  nd->send_packet(nd->driver, (uint8_t*)&eth, sizeof(eth)-2); //sizeof(eth)-2 to remove padding. padding was necessary for alignment.
++    return 0;
++}
+diff --git a/arp_frame.c b/arp_frame.c
+new file mode 100644
+index 0000000..4f55194
+--- /dev/null
++++ b/arp_frame.c
+@@ -0,0 +1,224 @@
++#include "types.h"
++#include "util.h"
++#include "defs.h"
++#include "arp_frame.h"
++
++#define BROADCAST_MAC "FF:FF:FF:FF:FF:FF"
++
++int hex_to_int (char ch) {
++
++	uint i = 0;
++
++	if (ch >= '0' && ch <= '9') {
++		i = ch - '0';
++	}
++	else if (ch >= 'A' && ch <= 'F') {
++		i = 10 + (ch - 'A');
++	}
++	else if (ch >= 'a' && ch <= 'f') {
++		i = 10 + (ch - 'a');
++	}
++
++	return i;
++}
++
++/**
++ * Pack the XX:Xx:XX:XX:XX:XX representation of MAC address
++ * into I:I:I:I:I:I
++ */
++void pack_mac(uchar* dest, char* src) {
++	for (int i = 0, j = 0; i < 17; i += 3) {
++		uint i1 = hex_to_int(src[i]);
++		uint i2 = hex_to_int(src[i+1]);
++		dest[j++] = (i1<<4) + i2;
++	}
++}
++
++uint32_t get_ip (char* ip, uint len) {
++    uint ipv4  = 0;
++    char arr[4];
++    int n1 = 0;
++
++     uint ip_vals[4];
++     int n2 = 0;
++
++     for (int i =0; i<len; i++) {
++        char ch = ip[i];
++        if (ch == '.') {
++            arr[n1++] = '\0';
++            n1 = 0;
++            ip_vals[n2++] = util_atoi(arr);
++       	    //cprintf("Check ipval:%d , arr:%s",ip_vals[n2],arr);
++	} else {
++
++		arr[n1++] = ch;
++	}
++    }
++
++        arr[n1++] = '\0';
++        n1 = 0;
++        ip_vals[n2++] = util_atoi(arr);
++        //cprintf("Final Check ipval:%d , arr:%s",ip_vals[n2],arr);
++
++//	ipv4 = (ip_vals[0]<<24) + (ip_vals[1]<<16) + (ip_vals[2]<<8) + ip_vals[3];
++	ipv4 = (ip_vals[3]<<24) + (ip_vals[2]<<16) + (ip_vals[1]<<8) + ip_vals[0];
++    return ipv4;
++}
++uint16_t htons(uint16_t v) {
++  return (v >> 8) | (v << 8);
++}
++uint32_t htonl(uint32_t v) {
++  return htons(v >> 16) | (htons((uint16_t) v) << 16);
++}
++
++int create_eth_arp_frame(uint8_t* smac, char* ipAddr, struct ethr_hdr *eth) {
++	cprintf("Create ARP frame\n");
++	char* dmac = BROADCAST_MAC;
++
++	pack_mac(eth->dmac, dmac);
++	memmove(eth->smac, smac, 6);
++
++	//ether type = 0x0806 for ARP
++	eth->ethr_type = htons(0x0806);
++
++	/** ARP packet filling **/
++	eth->hwtype = htons(1);
++	eth->protype = htons(0x0800);
++
++	eth->hwsize = 0x06;
++	eth->prosize = 0x04;
++
++	//arp request
++	eth->opcode = htons(1);
++
++	/** ARP packet internal data filling **/
++	memmove(eth->arp_smac, smac, 6);
++	pack_mac(eth->arp_dmac, dmac); //this can potentially be igored for the request
++
++//	eth->sip = get_ip("10.0.2.2", strlen("10.0.2.2"));
++	eth->sip = get_ip("10.0.2.15", strlen("10.0.2.15"));
++	*(uint32_t*)(&eth->dip) = get_ip(ipAddr, strlen(ipAddr));
++
++	return 0;
++}
++
++
++char int_to_hex (uint n) {
++
++    char ch = '0';
++
++    if (n >= 0 && n <= 9) {
++        ch = '0' + n;
++    }
++    else if (n >= 10 && n <= 15) {
++        ch = 'A' + (n - 10);
++    }
++
++    return ch;
++
++}
++// parse the mac address
++void unpack_mac(uint8_t* mac, char* mac_str) {
++
++    int c = 0;
++
++    for (int i = 0; i < 6; i++) {
++        uint m = mac[i];
++
++        uint i2 = m & 0x0f;
++        uint i1 = (m & 0xf0)>>4;
++
++        mac_str[c++] = int_to_hex(i1);
++        mac_str[c++] = int_to_hex(i2);
++
++        mac_str[c++] = ':';
++    }
++
++    mac_str[c-1] = '\0';
++
++}
++
++// parse the ip value
++void parse_ip (uint ip, char* ip_str) {
++
++    uint v = 255;
++    uint ip_vals[4];
++
++    for (int i = 0; i >= 0; i--) {
++        ip_vals[i] = ip && v;
++        v  = v<<8;
++    }
++
++    int c = 0;
++    for (int i = 0; i < 4; i++) {
++        uint ip1 = ip_vals[i];
++
++        if (ip1 == 0) {
++            ip_str[c++] = '0';
++            ip_str[c++] = ':';
++        }
++        else {
++            //unsigned int n_digits = 0;
++            char arr[3];
++            int j = 0;
++
++            while (ip1 > 0) {
++                arr[j++] = (ip1 % 10) + '0';
++                ip1 /= 10;
++            }
++
++            for (j = j-1; j >= 0; j--) {
++                ip_str[c++] = arr[j];
++            }
++
++            ip_str[c++] = ':';
++        }
++    }
++
++    ip_str[c-1] = '\0';
++
++}
++
++// ethernet packet arrived; parse and get the MAC address
++void parse_arp_reply(struct ethr_hdr eth) {
++	if (eth.ethr_type != 0x0806) {
++		cprintf("Not an ARP packet");
++		return;
++	}
++
++	if (eth.protype != 0x0800) {
++		cprintf("Not IPV4 protocol\n");
++		return;
++	}
++
++	if (eth.opcode != 2) {
++		cprintf("Not an ARP reply\n");
++		return;
++	}
++
++	char* my_mac = (char*)"FF:FF:FF:FF:FF:FF";
++	char dst_mac[18];
++
++	unpack_mac(eth.arp_dmac, dst_mac);
++
++	if (util_strcmp((const char*)my_mac, (const char*)dst_mac)) {
++		cprintf("Not the intended recipient\n");
++		return;
++	}
++
++	//parse sip; it should be equal to the one we sent
++	char* my_ip = (char*)"255.255.255.255";
++	char dst_ip[16];
++
++	parse_ip(eth.dip, dst_ip);
++
++	if (util_strcmp((const char*)my_ip, (const char*)dst_ip)) {
++	    cprintf("Not the intended recipient\n");
++	    return;
++	}
++
++	char mac[18];
++	unpack_mac(eth.arp_smac, mac);
++
++	cprintf((char*)mac);
++}
+diff --git a/arp_frame.h b/arp_frame.h
+new file mode 100644
+index 0000000..c2191e3
+--- /dev/null
++++ b/arp_frame.h
+@@ -0,0 +1,25 @@
++#ifndef __XV6_NETSTACK_ARP_FRAME_H__
++#define __XV6_NETSTACK_ARP_FRAME_H__
++
++struct ethr_hdr {
++	uint8_t dmac[6];
++	uint8_t smac[6];
++	uint16_t ethr_type;
++	uint16_t hwtype;
++	uint16_t protype;
++	uint8_t hwsize;
++	uint8_t prosize;
++	uint16_t opcode;
++	uint8_t arp_smac[6];
++	uint32_t sip;
++	uint8_t arp_dmac[6];
++	uint16_t dip; //This should be 4 bytes. But alignment issues are creating a padding b/w arp_dmac and dip if dip is kept 4 bytes.
++	uint16_t dip2;
++	uint16_t padd;//This need not be here explicitly. Compiler automatically inserts padding. But since we are removing padding length from struct length while calculating length, lets keep it here explicitly.
++};
++
++int create_eth_arp_frame(uint8_t* smac, char* ipAddr, struct ethr_hdr *eth);
++void unpack_mac(uchar* mac, char* mac_str);
++char int_to_hex (uint n);
++
++#endif
+diff --git a/arptest.c b/arptest.c
+new file mode 100644
+index 0000000..409ec83
+--- /dev/null
++++ b/arptest.c
+@@ -0,0 +1,13 @@
++#include "types.h"
++#include "user.h"
++
++int main(int argc,char** argv) {
++  int MAC_SIZE = 18;
++//  char* ip = "104.236.20.60";
++  char* ip = "10.0.2.2";
++  char* mac = malloc(MAC_SIZE);
++  if(arp("mynet0", argv[1], mac, MAC_SIZE) < 0) {
++    printf(1, "ARP for IP:%s Failed.\n", ip);
++  }
++  exit();
++}
+diff --git a/bootasm.S b/bootasm.S
+index 257867c..5b4aaaa 100644
+--- a/bootasm.S
++++ b/bootasm.S
+@@ -10,8 +10,19 @@
+ .code16                       # Assemble for 16-bit mode
+ .globl start
+ start:
++
++# disable processor interrrupts
++# because BIOS stops working and it's dangerous to enable interrupts
++# when xv6 is ready, interrupts will be enabled again
++
+   cli                         # BIOS enabled interrupts; disable
+ 
++# now xv6 is in "real model", simulates an Intel 8088
++# about segment register(16 bits):
++    # instruxtion fetches use %cs
++    # data reads and writes use %ds
++    # stack reads and writes use %ss
++
+   # Zero data segment registers DS, ES, and SS.
+   xorw    %ax,%ax             # Set %ax to zero
+   movw    %ax,%ds             # -> Data Segment
+@@ -20,6 +31,9 @@ start:
+ 
+   # Physical address line A20 is tied to zero so that the first PCs 
+   # with 2 MB would run software that assumed 1 MB.  Undo that.
++
++# open A20 gate to enable the 21st address bit
++# the A20 gate is controlled by kbd port 0x64 and 0x60
+ seta20.1:
+   inb     $0x64,%al               # Wait for not busy
+   testb   $0x2,%al
+@@ -39,6 +53,13 @@ seta20.2:
+   # Switch from real to protected mode.  Use a bootstrap GDT that makes
+   # virtual addresses map directly to physical addresses so that the
+   # effective memory map doesn't change during the transition.
++
++# start to use a predefined GDT table
++    # the GDT table has a null entry
++    # one entry for executable code
++    # one entry for data
++# lgdt sets the processor's GDT register with the value gdtdesc
++# enable protected mode by setting the 1 bit (CR0_PE) in register %cr0
+   lgdt    gdtdesc
+   movl    %cr0, %eax
+   orl     $CR0_PE, %eax
+@@ -48,11 +69,16 @@ seta20.2:
+   # Complete the transition to 32-bit protected mode by using a long jmp
+   # to reload %cs and %eip.  The segment descriptors are set up with no
+   # translation, so that the mapping is still the identity mapping.
++
++# use long jump to reload %cs -> SEG_KCODE<<3 and %eip -> start32
+   ljmp    $(SEG_KCODE<<3), $start32
+ 
+ .code32  # Tell assembler to generate 32-bit code now.
+ start32:
+   # Set up the protected-mode data segment registers
++
++# reset 3 segment(%ds,%es,%ss) registers to SEG_KDATA<<3
++# set 2 segments(%fs,%gs) that are not ready to use to 0
+   movw    $(SEG_KDATA<<3), %ax    # Our data segment selector
+   movw    %ax, %ds                # -> DS: Data Segment
+   movw    %ax, %es                # -> ES: Extra Segment
+@@ -62,6 +88,7 @@ start32:
+   movw    %ax, %gs                # -> GS
+ 
+   # Set up the stack pointer and call into C.
++# $start=0x7c00, the stack is placed from $start to 0
+   movl    $start, %esp
+   call    bootmain
+ 
+@@ -72,6 +99,7 @@ start32:
+   outw    %ax, %dx
+   movw    $0x8ae0, %ax            # 0x8ae0 -> port 0x8a00
+   outw    %ax, %dx
++# dead loop
+ spin:
+   jmp     spin
+ 
+diff --git a/bootmain.c b/bootmain.c
+index 1f20e5b..1b80965 100644
+--- a/bootmain.c
++++ b/bootmain.c
+@@ -17,10 +17,10 @@ void readseg(uchar*, uint, uint);
+ void
+ bootmain(void)
+ {
+-  struct elfhdr *elf;
+-  struct proghdr *ph, *eph;
+-  void (*entry)(void);
+-  uchar* pa;
++  struct elfhdr *elf; //pointer to elf struct
++  struct proghdr *ph, *eph; //pointers to the start and end of program headers
++  void (*entry)(void); //function pointer to entry()
++  uchar* pa; //segment pointer
+ 
+   elf = (struct elfhdr*)0x10000;  // scratch space
+ 
+@@ -33,12 +33,12 @@ bootmain(void)
+ 
+   // Load each program segment (ignores ph flags).
+   ph = (struct proghdr*)((uchar*)elf + elf->phoff);
+-  eph = ph + elf->phnum;
++  eph = ph + elf->phnum; //point to the end of program segments
+   for(; ph < eph; ph++){
+     pa = (uchar*)ph->paddr;
+-    readseg(pa, ph->filesz, ph->off);
++    readseg(pa, ph->filesz, ph->off); //from pa(program address)+phoff read filesz data
+     if(ph->memsz > ph->filesz)
+-      stosb(pa + ph->filesz, 0, ph->memsz - ph->filesz);
++      stosb(pa + ph->filesz, 0, ph->memsz - ph->filesz); //fill the rest of memsz with 0
+   }
+ 
+   // Call the entry point from the ELF header.
+@@ -61,15 +61,18 @@ readsect(void *dst, uint offset)
+ {
+   // Issue command.
+   waitdisk();
++  // pass variables to IDE disk
+   outb(0x1F2, 1);   // count = 1
+   outb(0x1F3, offset);
+   outb(0x1F4, offset >> 8);
+   outb(0x1F5, offset >> 16);
+   outb(0x1F6, (offset >> 24) | 0xE0);
++  // tell the IDE disk to read data given variables
+   outb(0x1F7, 0x20);  // cmd 0x20 - read sectors
+ 
+   // Read data.
+   waitdisk();
++  // after disk reading the data, read all the data from disk port
+   insl(0x1F0, dst, SECTSIZE/4);
+ }
+ 
+@@ -80,6 +83,7 @@ readseg(uchar* pa, uint count, uint offset)
+ {
+   uchar* epa;
+ 
++  // mark the end of the segment
+   epa = pa + count;
+ 
+   // Round down to sector boundary.
+@@ -91,6 +95,7 @@ readseg(uchar* pa, uint count, uint offset)
+   // If this is too slow, we could read lots of sectors at a time.
+   // We'd write more to memory than asked, but it doesn't matter --
+   // we load in increasing order.
++  // read a sector at a time
+   for(; pa < epa; pa += SECTSIZE, offset++)
+     readsect(pa, offset);
+ }
+diff --git a/checknic.c b/checknic.c
+new file mode 100644
+index 0000000..ba90470
+--- /dev/null
++++ b/checknic.c
+@@ -0,0 +1,12 @@
++#include "nic.h"
++#include "e1000.h"
++#include "types.h"
++#include "user.h"
++
++
++int main(void)
++{
++    int a=1,b=1;
++    checknic(a,b);
++    exit();
++}
+\ No newline at end of file
+diff --git a/cuth b/cuth
+old mode 100755
+new mode 100644
+diff --git a/defs.h b/defs.h
+index 82fb982..44283d3 100644
+--- a/defs.h
++++ b/defs.h
+@@ -188,3 +188,6 @@ void            clearpteu(pde_t *pgdir, char *uva);
+ 
+ // number of elements in fixed-size array
+ #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
++
++// arp.c
++int send_arpRequest(char* interface, char* ipAddr, char* arpResp);
+\ No newline at end of file
+diff --git a/dot-bochsrc b/dot-bochsrc
+old mode 100755
+new mode 100644
+diff --git a/dump b/dump
+new file mode 100644
+index 0000000..93129c3
+--- /dev/null
++++ b/dump
+@@ -0,0 +1,7 @@
++tcpdump -XXnr qemu.pcap
++
++
++uint8 %x
++xx
++0a
++0123 %d 123
+diff --git a/e1000.c b/e1000.c
+new file mode 100644
+index 0000000..0887955
+--- /dev/null
++++ b/e1000.c
+@@ -0,0 +1,279 @@
++#include "e1000.h"
++#include "defs.h"
++#include "x86.h"
++#include "arp_frame.h"
++#include "nic.h"
++#include "memlayout.h"
++
++ static void e1000_reg_write(uint32_t reg_addr, uint32_t value, struct e1000 *the_e1000) {
++   *(uint32_t*)(the_e1000->membase + (reg_addr)) = value;
++ }
++
++ static uint32_t e1000_reg_read(uint32_t reg_addr, struct e1000 *the_e1000)
++ {
++   uint32_t value = *(uint32_t*)(the_e1000->membase + reg_addr);
++
++   return value;
++ }
++
++ // Each inb of port 0x84 takes about 1.25us
++ // Super stupid delay logic. Don't even know if this works
++ // or understand what port 0x84 does.
++ // Could not find an explanantion.
++void udelay(unsigned int u)
++ {
++ 	unsigned int i;
++ 	for (i = 0; i < u; i++)
++ 		inb(0x84);
++ }
++
++ void e1000_send(void *driver, uint8_t *pkt, uint16_t length )
++ {
++     cprintf("e1000 send:\n");
++     int k;
++     for(k=0;k!=length;++k)
++     {
++         if(k%12==0 && k) cprintf("\n");
++         cprintf("%x%x ",((pkt[k])>>4)&(0xf),(pkt[k])&(0xf));
++     }
++     cprintf("\n");
++
++   struct e1000 *e1000 = (struct e1000*)driver;
++   cprintf("e1000 driver: Sending packet of length:0x%x %x starting at physical address:0x%x\n", length, sizeof(struct ethr_hdr), V2P(e1000->tx_buf[e1000->tbd_tail]));
++   memset(e1000->tbd[e1000->tbd_tail], 0, sizeof(struct e1000_tbd));
++   memmove((e1000->tx_buf[e1000->tbd_tail]), pkt, length);
++   e1000->tbd[e1000->tbd_tail]->addr = (uint64_t)(uint32_t)V2P(e1000->tx_buf[e1000->tbd_tail]);
++ 	e1000->tbd[e1000->tbd_tail]->length = length;
++ 	e1000->tbd[e1000->tbd_tail]->cmd = 9;//(E1000_TDESC_CMD_RS | E1000_TDESC_CMD_EOP | E1000_TDESC_CMD_IFCS);
++   e1000->tbd[e1000->tbd_tail]->cso = 0;
++ 	// update the tail so the hardware knows it's ready
++ 	int oldtail = e1000->tbd_tail;
++ 	e1000->tbd_tail = (e1000->tbd_tail + 1) % E1000_TBD_SLOTS;
++ 	e1000_reg_write(E1000_TDT, e1000->tbd_tail, e1000);
++
++ 	while( !E1000_TDESC_STATUS_DONE(e1000->tbd[oldtail]->status) )
++ 	{
++ 		udelay(2);
++ 	}
++   cprintf("after while loop\n");
++ }
++
++ int e1000_init(struct pci_func *pcif, void** driver, uint8_t *mac_addr) {
++   struct e1000 *the_e1000 = (struct e1000*)kalloc();
++
++ 	for (int i = 0; i < 6; i++) {
++     // I/O port numbers are 16 bits, so they should be between 0 and 0xffff.
++     if (pcif->reg_base[i] <= 0xffff) {
++       the_e1000->iobase = pcif->reg_base[i];
++       if(pcif->reg_size[i] != 64) {  // CSR is 64-byte
++         panic("I/O space BAR size != 64");
++       }
++       break;
++     } else if (pcif->reg_base[i] > 0) {
++       the_e1000->membase = pcif->reg_base[i];
++       //cprintf("membase set: %d\n",i);
++       if(pcif->reg_size[i] != (1<<17)) {  // CSR is 64-byte
++         panic("Mem space BAR size != 128KB");
++       }
++     }
++   }
++
++   if (!the_e1000->iobase)
++     panic("Fail to find a valid I/O port base for E1000.");
++   if (!the_e1000->membase)
++     panic("Fail to find a valid Mem I/O base for E1000.");
++
++ 	the_e1000->irq_line = pcif->irq_line;
++   //the_e1000->irq_pin = pcif->irq_pin;
++   //cprintf("e1000 init: interrupt pin=%d and line:%d\n",the_e1000->irq_pin,the_e1000->irq_line);
++   the_e1000->tbd_head = the_e1000->tbd_tail = 0;
++   the_e1000->rbd_head = the_e1000->rbd_tail = 0;
++
++   // Reset device but keep the PCI config
++   // e1000_reg_write(E1000_CNTRL_REG,
++   //   e1000_reg_read(E1000_CNTRL_REG, the_e1000) | E1000_CNTRL_RST_MASK,
++   //   the_e1000);
++   // //read back the value after approx 1us to check RST bit cleared
++   // do {
++   //   udelay(3);
++   // }while(E1000_CNTRL_RST_BIT(e1000_reg_read(E1000_CNTRL_REG, the_e1000)));
++
++   // //the manual says in Section 14.3 General Config -
++   // //Must set the ASDE and SLU(bit 5 and 6(0 based index)) in the CNTRL Reg to allow auto speed
++   // //detection after RESET
++   // uint32_t cntrl_reg = e1000_reg_read(E1000_CNTRL_REG, the_e1000);
++   // e1000_reg_write(E1000_CNTRL_REG, cntrl_reg | E1000_CNTRL_ASDE_MASK | E1000_CNTRL_SLU_MASK,
++   //   the_e1000);
++
++   //Read Hardware(MAC) address from the device
++   uint32_t macaddr_l = e1000_reg_read(E1000_RCV_RAL0, the_e1000);
++   uint32_t macaddr_h = e1000_reg_read(E1000_RCV_RAH0, the_e1000);
++   *(uint32_t*)the_e1000->mac_addr = macaddr_l;
++   *(uint16_t*)(&the_e1000->mac_addr[4]) = (uint16_t)macaddr_h;
++   *(uint32_t*)mac_addr = macaddr_l;
++   *(uint32_t*)(&mac_addr[4]) = (uint16_t)macaddr_h;
++   char mac_str[18];
++   unpack_mac(the_e1000->mac_addr, mac_str);
++   mac_str[17] = 0;
++
++   cprintf("MAC address of the e1000 device:%s\n", mac_str);
++
++
++   //Transmit/Receive and DMA config beyond this point...
++   //sizeof(tbd)=128bits/16bytes. so 256 of these will fit in a page of size 4KB.
++   //But the struct e1000 has to contain pointer to these many descriptors.
++   //Each pointer being 4 bytes, and 4 such array of pointers(inclusing packet buffers)
++   //you get N*16+(some more values in the struct e1000) = 4096
++   // N=128=E1000_TBD_SLOTS. i.e., the maximum number of descriptors in one ring
++   struct e1000_tbd *ttmp = (struct e1000_tbd*)kalloc();
++   for(int i=0;i<E1000_TBD_SLOTS;i++, ttmp++) {
++     //cprintf("TBD[%d] add: %x\n",i,ttmp);
++     the_e1000->tbd[i] = (struct e1000_tbd*)ttmp;
++     the_e1000->tbd[i]->addr = 0;
++     the_e1000->tbd[i]->length=0;
++     the_e1000->tbd[i]->cso=0;
++     the_e1000->tbd[i]->cmd=(E1000_TDESC_CMD_RS>>24);
++     the_e1000->tbd[i]->status = E1000_TXD_STAT_DD;
++     the_e1000->tbd[i]->css=0;
++     the_e1000->tbd[i]->special=0;
++   }
++   //check the last nibble of the transmit/receive rings to make sure they
++   //are on paragraph boundary
++   if( (V2P(the_e1000->tbd[0]) & 0x0000000f) != 0){
++     cprintf("ERROR:e1000:Transmit Descriptor Ring not on paragraph boundary\n");
++     kfree((char*)ttmp);
++     return -1;
++   }
++   //same for rbd
++   struct e1000_rbd *rtmp = (struct e1000_rbd*)kalloc();
++   for(int i=0;i<E1000_RBD_SLOTS;i++, rtmp++) {
++     the_e1000->rbd[i] = (struct e1000_rbd*)rtmp;
++     the_e1000->rbd[i]->status = 0;//E1000_RXD_STAT_DD;
++     the_e1000->rbd[i]->errors=0;
++     the_e1000->rbd[i]->checksum=0;
++   }
++   if( (V2P(the_e1000->rbd[0]) & 0x0000000f) != 0){
++     cprintf("ERROR:e1000:Receive Descriptor Ring not on paragraph boundary\n");
++     kfree((char*)rtmp);
++     return -1;
++   }
++
++   //Now for the packet buffers in Receive Ring. Can fit 2 packet buf in 1 page
++   struct packet_buf *tmp;
++
++   for(int i=0; i<E1000_TBD_SLOTS; i+=2) {
++     tmp = (struct packet_buf*)kalloc();
++     the_e1000->tx_buf[i] = tmp;
++     tmp++;
++     //the_e1000->tbd[i]->addr = (uint32_t)the_e1000->tx_buf[i];
++     //the_e1000->tbd[i]->addr_h = 0;
++     the_e1000->tx_buf[i+1] = tmp;
++     //the_e1000->tbd[i+1]->addr_l = (uint32_t)the_e1000->tx_buf[i+1];
++     //the_e1000->tbd[i+1]->addr_h = 0;
++   }
++
++   //Write the Descriptor ring addresses in TDBAL, and RDBAL, plus HEAD and TAIL pointers
++   e1000_reg_write(E1000_TDBAL, V2P(the_e1000->tbd[0]), the_e1000);
++   e1000_reg_write(E1000_TDBAH, 0x00000000, the_e1000);
++   e1000_reg_write(E1000_TDLEN, (E1000_TBD_SLOTS*16), the_e1000);
++   e1000_reg_write(E1000_TDH, 0x00000000, the_e1000);
++   e1000_reg_write(E1000_TCTL, //0x0004010A,
++                   E1000_TCTL_EN |
++                     E1000_TCTL_PSP |
++                     E1000_TCTL_CT_SET(0x0f) |
++                     E1000_TCTL_COLD_SET(0x200),
++                   the_e1000);
++   e1000_reg_write(E1000_TDT, 0, the_e1000);
++   e1000_reg_write(E1000_TIPG, //0x60100a,
++                   E1000_TIPG_IPGT_SET(10) |
++                     E1000_TIPG_IPGR1_SET(10) |
++                     E1000_TIPG_IPGR2_SET(10),
++                   the_e1000);
++
++   the_e1000->tbd_tail=the_e1000->tbd_head=0;
++   the_e1000->rbd_tail=E1000_RBD_SLOTS-1;
++   the_e1000->rbd_head=0;
++                  
++   e1000_reg_write(E1000_RCV_RAL0, 0x12005452, the_e1000);
++   e1000_reg_write(E1000_RCV_RAH0, 0x5634|0x80000000, the_e1000);
++   //e1000_reg_write(E1000_MTA,0,the_e1000);
++   e1000_reg_write(E1000_RDBAL, V2P(*(the_e1000->rbd)), the_e1000);
++   e1000_reg_write(E1000_RDBAH, 0x00000000, the_e1000);
++   e1000_reg_write(E1000_RDLEN, (E1000_RBD_SLOTS*16), the_e1000);
++   cprintf("RX Ring Size: %d\n",(E1000_RBD_SLOTS*16));
++
++   for(int i=0; i<E1000_RBD_SLOTS; i+=1) {
++     tmp = (struct packet_buf*)kalloc();
++     the_e1000->rx_buf[i] = tmp;
++     //tmp++;
++     // the_e1000->rbd[i]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i])+4;
++     // the_e1000->rbd[i]->addr_h = 0;
++     // // cprintf("origin: %x\n",V2P((uint32_t)the_e1000->rx_buf[i]));
++     // cprintf("after: %x\n",V2P((uint32_t)the_e1000->rx_buf[i])+4);
++     the_e1000->rbd[i]->addr=(uint64_t)V2P((uint32_t)the_e1000->rx_buf[i]+4);
++     //the_e1000->rx_buf[i+1] = tmp;
++     //the_e1000->rbd[i+1]->addr_l = V2P((uint32_t)the_e1000->rx_buf[i+1])+4;
++     //the_e1000->rbd[i+1]->addr_h = 0;
++   }
++
++   e1000_reg_write(E1000_RDT, E1000_RBD_SLOTS-1, the_e1000);
++   e1000_reg_write(E1000_RDH, 0x00000000, the_e1000);
++   //e1000_reg_write(E1000_RDT, (uint32_t)P2V(&(the_e1000->rbd[E1000_RBD_SLOTS-2])), the_e1000);
++   //e1000_reg_write(E1000_RDH, (uint32_t)P2V(&(the_e1000->rbd[0])), the_e1000);
++
++   //cprintf("%x\n%x\n",E1000_RBD_SLOTS,(uint32_t)P2V(&(the_e1000->rbd[E1000_RBD_SLOTS-2])));
++   //e1000_reg_write(E1000_MANC,E1000_MANC_ARP_EN|E1000_MANC_ARP_RES_EN,the_e1000);
++
++
++   //enable interrupts
++   // e1000_reg_write(E1000_IMS, E1000_IMS_RXSEQ |
++   //                            E1000_IMS_RXO |
++   //                            E1000_IMS_RXT0|
++   //                            E1000_IMS_TXQE|
++   //                            E1000_IMS_LSC|
++   //                            E1000_IMS_RXDMT0, the_e1000);
++   //Receive control Register.
++   uint32_t rflag=0;
++   rflag|=E1000_RCTL_EN;
++   rflag&=(~0x00000C00);
++   //rflag|=E1000_RCTL_UPE;
++   //rflag|=E1000_RCTL_LBM_MAC|E1000_RCTL_LBM_SLP|E1000_RCTL_LBM_TCVR;
++   //rflag|=E1000_RCTL_VFE;
++   rflag|=E1000_RCTL_BAM;
++   rflag|=0x00000000;
++   rflag|=E1000_RCTL_SECRC;
++   e1000_reg_write(E1000_RCTL,rflag,the_e1000);
++  
++ //                E1000_RCTL_EN |
++ //                  E1000_RCTL_BAM |
++ //                  E1000_RCTL_BSIZE | 0x00000008,//|
++                 //  E1000_RCTL_SECRC,
++ //                the_e1000);
++ //cprintf("e1000:Interrupt enabled mask:0x%x\n", e1000_reg_read(E1000_IMS, the_e1000));
++   //Register interrupt handler here...
++   picenable(the_e1000->irq_line);
++   ioapicenable(the_e1000->irq_line, 0);
++   ioapicenable(the_e1000->irq_line, 1);
++
++
++   *driver = the_e1000;
++   return 0;
++ }
++
++ void e1000_recv(void *driver, uint8_t* pkt, uint16_t *length) {
++   struct e1000 *the_e1000=(struct e1000*)driver;
++   int i=(the_e1000->rbd_tail+1)%E1000_RBD_SLOTS;
++   if(!(the_e1000->rbd[i]->status&E1000_RXD_STAT_DD )||!(the_e1000->rbd[i]->status&E1000_RXD_STAT_EOP))
++   {
++     *length=0;
++     return;
++   }
++   *length=the_e1000->rbd[i]->length;
++   //pkt=&(the_e1000->rx_buf[i]->buf[0]);
++   //memmove(pkt,(uint8_t*)P2V(the_e1000->rbd[i]->addr_l),(uint)(*length));
++   memmove(pkt,P2V((uint8_t*)(uint32_t)(the_e1000->rbd[i]->addr)),(uint)(*length));
++   the_e1000->rbd[i]->status=0;
++   cprintf("ERRORS: %x\n",the_e1000->rbd[i]->errors);
++   cprintf("CHECKSUM: %x\n",the_e1000->rbd[i]->checksum);
++   the_e1000->rbd_tail=i;
++ }
+\ No newline at end of file
+diff --git a/e1000.h b/e1000.h
+new file mode 100644
+index 0000000..4cbb363
+--- /dev/null
++++ b/e1000.h
+@@ -0,0 +1,222 @@
++#ifndef __XV6_NETSTACK_e1000_H__
++#define __XV6_NETSTACK_e1000_H__
++
++#include "types.h"
++#include "nic.h"
++#include "pci.h"
++
++ #define E1000_VENDOR 0x8086
++ #define E1000_DEVICE 0x100E
++
++ #define E1000_RBD_SLOTS			128
++ #define E1000_TBD_SLOTS			128
++
++ //Bit 31:20 are not writable. Always read 0b.
++ #define E1000_IOADDR_OFFSET 0x00000000
++
++ #define E1000_IODATA_OFFSET 0x00000004
++
++ /**
++  * Ethernet Device Control Register values
++  */
++ #define E1000_CNTRL_REG           0x00000
++
++ //Global device reset. does not clear PCI config
++ #define E1000_CNTRL_RST_MASK      0x04000000
++ #define E1000_CNTRL_ASDE_MASK     0x00000020
++ #define E1000_CNTRL_SLU_MASK      0x00000040
++
++
++#define E1000_CNTRL_RST_BIT(cntrl) \
++        (cntrl & E1000_CNTRL_RST_MASK)
++
++ /**
++  * Ethernet Device registers
++  */
++ #define E1000_RCV_RAL0      0x05400
++ #define E1000_RCV_RAH0      0x05404
++ #define E1000_TDBAL         0x03800
++ #define E1000_TDBAH         0x03804
++ #define E1000_TDLEN         0x03808
++ #define E1000_TDH           0x03810
++ #define E1000_TDT           0x03818
++ #define E1000_RDBAL         0x02800
++ #define E1000_RDBAH         0x02804
++ #define E1000_RDLEN         0x02808
++ #define E1000_RDH           0x02810
++ #define E1000_RDT           0x02818
++
++ /**
++  * Ethernet Device Transmission Control register
++  */
++ #define E1000_TCTL                0x00400
++
++ #define E1000_TCTL_EN             0x00000002
++ #define E1000_TCTL_PSP            0x00000008
++ #define E1000_TCTL_CT_BIT_MASK    0x00000ff0
++ #define E1000_TCTL_CT_BIT_SHIFT   4
++#define E1000_TCTL_CT_SET(value) \
++        ((value << E1000_TCTL_CT_BIT_SHIFT) & E1000_TCTL_CT_BIT_MASK)
++#define E1000_TCTL_COLD_BIT_MASK  0x003ff000
++#define E1000_TCTL_COLD_BIT_SHIFT 12
++#define E1000_TCTL_COLD_SET(value) \
++        ((value << E1000_TCTL_COLD_BIT_SHIFT) & E1000_TCTL_COLD_BIT_MASK)
++
++// /**
++//  * Ethernet Device Transmission Inter-Packet Gap register
++//  */
++ #define E1000_TIPG                0x00410
++
++ #define E1000_TIPG_IPGT_BIT_MASK    0x000003ff
++ #define E1000_TIPG_IPGT_BIT_SHIFT   0
++#define E1000_TIPG_IPGT_SET(value) \
++        ((value << E1000_TIPG_IPGT_BIT_SHIFT) & E1000_TIPG_IPGT_BIT_MASK)
++#define E1000_TIPG_IPGR1_BIT_MASK   0x000ffc00
++#define E1000_TIPG_IPGR1_BIT_SHIFT   10
++#define E1000_TIPG_IPGR1_SET(value) \
++        ((value << E1000_TIPG_IPGR1_BIT_SHIFT) & E1000_TIPG_IPGR1_BIT_MASK)
++#define E1000_TIPG_IPGR2_BIT_MASK   0x3ff00000
++#define E1000_TIPG_IPGR2_BIT_SHIFT   20
++#define E1000_TIPG_IPGR2_SET(value) \
++        ((value << E1000_TIPG_IPGR2_BIT_SHIFT) & E1000_TIPG_IPGR2_BIT_MASK)
++
++// /**
++// * Ethernet Device Interrupt Mast Set registers
++// */
++ #define E1000_IMS                 0x000d0
++ #define E1000_IMS_TXQE            0x00000002
++ #define E1000_IMS_LSC             0x00000004
++ #define E1000_IMS_RXSEQ           0x00000008
++ #define E1000_IMS_RXDMT0          0x00000010
++ #define E1000_IMS_RXO             0x00000040
++ #define E1000_IMS_RXT0            0x00000080
++
++ #define E1000_MTA                 0X05200
++
++ /**
++  * Ethernet Device Receive Control register
++  */
++ #define E1000_RCTL                0x00100
++
++ #define E1000_RCTL_EN             0x00000002
++ #define E1000_RCTL_BAM            0x00008000
++ #define E1000_RCTL_BSIZE          0x00000000
++ #define E1000_RCTL_SECRC          0x04000000
++ #define E1000_RCTL_UPE            0x00000008
++
++ #define E1000_RCTL_LBM_MAC        0x00000040
++ #define E1000_RCTL_LBM_SLP        0x00000080
++ #define E1000_RCTL_LBM_TCVR       0x000000C0
++ #define E1000_RCTL_VFE            0x00040000
++
++ /**
++  * Ethernet Device Transmit Descriptor Command Field
++  */
++ #define E1000_TDESC_CMD_RS      0x08
++ #define E1000_TDESC_CMD_EOP     0x01
++ #define E1000_TDESC_CMD_IFCS    0x02
++
++ /**
++  * Ethernet Device Transmit Descriptor Status Field
++  */
++ #define E1000_TDESC_STATUS_DONE_MASK   0x01
++#define E1000_TDESC_STATUS_DONE(status) \
++        (status & E1000_TDESC_STATUS_DONE_MASK)
++
++ /**
++   * Ethernet Device EEPROM registers
++   */
++ #define E1000_EERD_REG_ADDR         0x00014
++
++ #define E1000_EERD_START_BIT_MASK   0x00000001
++ #define E1000_EERD_ADDR_BIT_MASK    0x0000ff00
++ #define E1000_EERD_ADDR_BIT_SHIFT   8
++ #define E1000_EERD_DATA_BIT_MASK    0xffff0000
++ #define E1000_EERD_DATA_BIT_SHIFT   16
++ #define E1000_EERD_DONE_BIT_MASK    0x00000010
++
++#define E1000_EERD_ADDR(addr) \
++        ((addr << E1000_EERD_ADDR_BIT_SHIFT) & E1000_EERD_ADDR_BIT_MASK)
++
++#define E1000_EERD_DATA(eerd) \
++        (eerd >> E1000_EERD_DATA_BIT_SHIFT)
++
++#define E1000_EERD_DONE(eerd) \
++        (eerd & E1000_EERD_DONE_BIT_MASK)
++
++ /**
++  * EEPROM Address Map
++  */
++ #define EEPROM_ADDR_MAP_ETHER_ADDR_1    0x00
++ #define EEPROM_ADDR_MAP_ETHER_ADDR_2    0x01
++ #define EEPROM_ADDR_MAP_ETHER_ADDR_3    0x02
++
++ #define E1000_MANC              0x05820
++ #define E1000_MANC_ARP_EN       0x00002000
++ #define E1000_MANC_ARP_RES_EN   0x00008000
++
++ #define E1000_TXD_STAT_DD    0x00000001 /* Descriptor Done */
++ #define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
++ #define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
++
++ //Trasmit Buffer Descriptor
++ // The Transmit Descriptor Queue must be aligned on 16-byte boundary
++ __attribute__ ((packed))
++ struct e1000_tbd {
++   uint64_t addr;
++ 	uint16_t length;
++ 	uint8_t cso;
++ 	uint8_t cmd;
++ 	uint8_t status;
++ 	uint8_t css;
++ 	uint16_t special;
++ };
++
++ //Receive Buffer Descriptor
++ // The Receive Descriptor Queue must be aligned on 16-byte boundary
++ __attribute__ ((packed))
++ struct e1000_rbd {
++   // uint32_t addr_l;
++   // uint32_t addr_h;
++ 	uint64_t addr;
++   uint16_t	length;
++ 	uint16_t	checksum;
++ 	uint8_t	status;
++ 	uint8_t	errors;
++ 	uint16_t	special;
++ };
++
++ struct packet_buf {
++     uint8_t buf[2046];
++ };
++
++ struct e1000 {
++ 	struct e1000_tbd *tbd[E1000_TBD_SLOTS];
++ 	struct e1000_rbd *rbd[E1000_RBD_SLOTS];
++
++   struct packet_buf *tx_buf[E1000_TBD_SLOTS];  //packet buffer space for tbd
++   struct packet_buf *rx_buf[E1000_RBD_SLOTS];  //packet buffer space for rbd
++
++   int tbd_head;
++ 	int tbd_tail;
++ 	char tbd_idle;
++
++ 	int rbd_head;
++ 	int rbd_tail;
++ 	char rbd_idle;
++
++   uint32_t iobase;
++   uint32_t membase;
++   uint8_t irq_line;
++   uint8_t irq_pin;
++   uint8_t mac_addr[6];
++ };
++
++ int e1000_init(struct pci_func *pcif, void **driver, uint8_t *mac_addr);
++
++ void e1000_send(void *e1000, uint8_t* pkt, uint16_t length);
++ void e1000_recv(void *e1000, uint8_t* pkt, uint16_t *length);
++ void e100_intr(void);
++ void udelay(unsigned int u);
++
++#endif
+diff --git a/icmptest.c b/icmptest.c
+new file mode 100644
+index 0000000..b6d3bc8
+--- /dev/null
++++ b/icmptest.c
+@@ -0,0 +1,11 @@
++#include "nic.h"
++#include "e1000.h"
++#include "types.h"
++#include "user.h"
++
++
++int main(void)
++{
++    icmptest(1,2);
++    exit();
++}
+\ No newline at end of file
+diff --git a/main.c b/main.c
+index 774ed54..daa94d8 100644
+--- a/main.c
++++ b/main.c
+@@ -5,6 +5,7 @@
+ #include "mmu.h"
+ #include "proc.h"
+ #include "x86.h"
++#include "pci.h"
+ 
+ static void startothers(void);
+ static void mpmain(void)  __attribute__((noreturn));
+@@ -33,6 +34,7 @@ main(void)
+   ideinit();       // disk 
+   startothers();   // start other processors
+   kinit2(P2V(4*1024*1024), P2V(PHYSTOP)); // must come after startothers()
++  pci_init();
+   userinit();      // first user process
+   mpmain();        // finish this processor's setup
+ }
+diff --git a/nic.c b/nic.c
+new file mode 100644
+index 0000000..e4ccee1
+--- /dev/null
++++ b/nic.c
+@@ -0,0 +1,23 @@
++#include "nic.h"
++#include "defs.h"
++
++int get_device(char* interface, struct nic_device** nd) {
++  cprintf("get device for interface=%s\n", interface);
++  /**
++   *TODO: Use interface name to fetch device details
++   *from a table of loaded devices.
++   *
++   * For now, since we have only one device loaded at a time,
++   * this will suffice
++   */
++   if(nic_devices[0].send_packet == 0 || nic_devices[0].recv_packet == 0) {
++     return -1;
++   }
++   *nd = &nic_devices[0];
++
++   return 0;
++}
++
++void register_device(struct nic_device nd) {
++  nic_devices[0] = nd;
++}
+diff --git a/nic.h b/nic.h
+new file mode 100644
+index 0000000..05a346c
+--- /dev/null
++++ b/nic.h
+@@ -0,0 +1,27 @@
++#ifndef __XV6_NETSTACK_NIC_H__
++#define __XV6_NETSTACK_NIC_H__
++/**
++ *author: Anmol Vatsa<anvatsa@cs.utah.edu>
++ *
++ *load device drivers for different NICs
++ */
++
++#include "types.h"
++#include "arp_frame.h"
++
++//Generic NIC device driver container
++struct nic_device {
++  void *driver;
++  uint8_t mac_addr[6];
++  void (*send_packet) (void *driver, uint8_t* pkt, uint16_t length);
++  void (*recv_packet) (void *driver, uint8_t* pkt, uint16_t *length);
++};
++
++//Holds the instances of nic_devices for loaded devices
++//Lets say for now there can't be more than 1 loaded NIC device
++struct nic_device nic_devices[1];
++
++void register_device(struct nic_device nd);
++int get_device(char* interface, struct nic_device** nd);
++
++#endif
+diff --git a/pci.c b/pci.c
+new file mode 100644
+index 0000000..2a01006
+--- /dev/null
++++ b/pci.c
+@@ -0,0 +1,287 @@
++#include "pci.h"
++#include "x86.h"
++#include "defs.h"
++#include "pciregisters.h"
++#include "e1000.h"
++#include "nic.h"
++
++typedef unsigned char uint8;
++typedef unsigned long long uint64;
++
++uint8 fillbuf(uint8* buf, uint8 k, uint64 num, uint8 len)
++{
++	static uint8 mask = -1;
++	for(short j = len - 1; j >= 0; --j)
++	{
++		buf[k++] = (num >> (j << 3)) & mask;
++	}
++	return k;
++}
++
++static int e1000_attach(struct pci_func *pcif) {
++	pci_func_enable(pcif);
++	struct nic_device nd;
++
++	fillbuf(nd.mac_addr,0,0x563412005452l,6);
++
++	e1000_init(pcif, &nd.driver, nd.mac_addr);
++	nd.send_packet = e1000_send;
++	nd.recv_packet = e1000_recv;
++	register_device(nd);
++  return 0;
++}
++
++
++// Flag to do "lspci" at bootup
++static int pci_show_devs = 1;
++static int pci_show_addrs = 0;
++
++// PCI "configuration mechanism one"
++static uint32_t pci_conf1_addr_ioport = 0x0cf8;
++static uint32_t pci_conf1_data_ioport = 0x0cfc;
++
++// Forward declarations
++static int pci_bridge_attach(struct pci_func *pcif);
++
++#define ARRAY_SIZE(a)	(sizeof(a) / sizeof(a[0]))
++
++// PCI driver table
++struct pci_driver {
++	uint32_t key1, key2;
++	int (*attachfn) (struct pci_func *pcif);
++};
++
++// pci_attach_class matches the class and subclass of a PCI device
++struct pci_driver pci_attach_class[] = {
++	{ PCI_CLASS_BRIDGE, PCI_SUBCLASS_BRIDGE_PCI, &pci_bridge_attach },
++	{ 0, 0, 0 },
++};
++
++// pci_attach_vendor matches the vendor ID and device ID of a PCI device. key1
++// and key2 should be the vendor ID and device ID respectively
++struct pci_driver pci_attach_vendor[] = {
++    { E1000_VENDOR, E1000_DEVICE, &e1000_attach },
++	{ 0, 0, 0 },
++};
++
++static void
++pci_conf1_set_addr(uint32_t bus,
++		   uint32_t dev,
++		   uint32_t func,
++		   uint32_t offset)
++{
++	// assert(bus < 256);
++	// assert(dev < 32);
++	// assert(func < 8);
++	// assert(offset < 256);
++	// assert((offset & 0x3) == 0);
++
++	uint32_t v = (1 << 31) |		// config-space
++		(bus << 16) | (dev << 11) | (func << 8) | (offset);
++	outl(pci_conf1_addr_ioport, v);
++}
++
++static uint32_t
++pci_conf_read(struct pci_func *f, uint32_t off)
++{
++	pci_conf1_set_addr(f->bus->busno, f->dev, f->func, off);
++	return inl(pci_conf1_data_ioport);
++}
++
++static void
++pci_conf_write(struct pci_func *f, uint32_t off, uint32_t v)
++{
++	pci_conf1_set_addr(f->bus->busno, f->dev, f->func, off);
++	outl(pci_conf1_data_ioport, v);
++}
++
++static int __attribute__((warn_unused_result))
++pci_attach_match(uint32_t key1, uint32_t key2,
++		 struct pci_driver *list, struct pci_func *pcif)
++{
++	uint32_t i;
++
++	for (i = 0; list[i].attachfn; i++) {
++		if (list[i].key1 == key1 && list[i].key2 == key2) {
++			int r = list[i].attachfn(pcif);
++			if (r > 0)
++				return r;
++			if (r < 0)
++				cprintf("pci_attach_match: attaching "
++					"%x.%x (%p): e\n",
++					key1, key2, list[i].attachfn, r);
++		}
++	}
++	return 0;
++}
++
++static int
++pci_attach(struct pci_func *f)
++{
++	return
++		pci_attach_match(PCI_CLASS(f->dev_class),
++				 PCI_SUBCLASS(f->dev_class),
++				 &pci_attach_class[0], f) ||
++		pci_attach_match(PCI_VENDOR(f->dev_id),
++				 PCI_PRODUCT(f->dev_id),
++				 &pci_attach_vendor[0], f);
++}
++
++static const char *pci_class[] =
++{
++	[0x0] = "Unknown",
++	[0x1] = "Storage controller",
++	[0x2] = "Network controller",
++	[0x3] = "Display controller",
++	[0x4] = "Multimedia device",
++	[0x5] = "Memory controller",
++	[0x6] = "Bridge device",
++};
++
++static void
++pci_print_func(struct pci_func *f)
++{
++	const char *class = pci_class[0];
++	if (PCI_CLASS(f->dev_class) < ARRAY_SIZE(pci_class))
++		class = pci_class[PCI_CLASS(f->dev_class)];
++
++	cprintf("PCI: %x:%x.%d: %x:%x: class: %x.%x (%s) irq: %d\n",
++		f->bus->busno, f->dev, f->func,
++		PCI_VENDOR(f->dev_id), PCI_PRODUCT(f->dev_id),
++		PCI_CLASS(f->dev_class), PCI_SUBCLASS(f->dev_class), class,
++		f->irq_line);
++}
++
++static int
++pci_scan_bus(struct pci_bus *bus)
++{
++	int totaldev = 0;
++	struct pci_func df;
++	memset(&df, 0, sizeof(df));
++	df.bus = bus;
++
++	for (df.dev = 0; df.dev < 32; df.dev++) {
++		uint32_t bhlc = pci_conf_read(&df, PCI_BHLC_REG);
++		if (PCI_HDRTYPE_TYPE(bhlc) > 1)	    // Unsupported or no device
++			continue;
++
++		totaldev++;
++
++		struct pci_func f = df;
++		for (f.func = 0; f.func < (PCI_HDRTYPE_MULTIFN(bhlc) ? 8 : 1);
++		     f.func++) {
++			struct pci_func af = f;
++
++			af.dev_id = pci_conf_read(&f, PCI_ID_REG);
++			if (PCI_VENDOR(af.dev_id) == 0xffff)
++				continue;
++
++			uint32_t intr = pci_conf_read(&af, PCI_INTERRUPT_REG);
++			af.irq_line = PCI_INTERRUPT_LINE(intr);
++
++			af.dev_class = pci_conf_read(&af, PCI_CLASS_REG);
++			if (pci_show_devs)
++				pci_print_func(&af);
++			pci_attach(&af);
++		}
++	}
++
++	return totaldev;
++}
++
++static int
++pci_bridge_attach(struct pci_func *pcif)
++{
++	uint32_t ioreg  = pci_conf_read(pcif, PCI_BRIDGE_STATIO_REG);
++	uint32_t busreg = pci_conf_read(pcif, PCI_BRIDGE_BUS_REG);
++
++	if (PCI_BRIDGE_IO_32BITS(ioreg)) {
++		cprintf("PCI: %x:%x.%d: 32-bit bridge IO not supported.\n",
++			pcif->bus->busno, pcif->dev, pcif->func);
++		return 0;
++	}
++
++	struct pci_bus nbus;
++	memset(&nbus, 0, sizeof(nbus));
++	nbus.parent_bridge = pcif;
++	nbus.busno = (busreg >> PCI_BRIDGE_BUS_SECONDARY_SHIFT) & 0xff;
++
++	if (pci_show_devs)
++		cprintf("PCI: %x:%x.%d: bridge to PCI bus %d--%d\n",
++			pcif->bus->busno, pcif->dev, pcif->func,
++			nbus.busno,
++			(busreg >> PCI_BRIDGE_BUS_SUBORDINATE_SHIFT) & 0xff);
++
++	pci_scan_bus(&nbus);
++	return 1;
++}
++
++// External PCI subsystem interface
++
++void
++pci_func_enable(struct pci_func *f)
++{
++	pci_conf_write(f, PCI_COMMAND_STATUS_REG,
++		       PCI_COMMAND_IO_ENABLE |
++		       PCI_COMMAND_MEM_ENABLE |
++		       PCI_COMMAND_MASTER_ENABLE);
++
++	uint32_t bar_width;
++	uint32_t bar;
++	for (bar = PCI_MAPREG_START; bar < PCI_MAPREG_END;
++	     bar += bar_width)
++	{
++		uint32_t oldv = pci_conf_read(f, bar);
++
++		bar_width = 4;
++		pci_conf_write(f, bar, 0xffffffff);
++		uint32_t rv = pci_conf_read(f, bar);
++
++		if (rv == 0)
++			continue;
++
++		int regnum = PCI_MAPREG_NUM(bar);
++		uint32_t base, size;
++		if (PCI_MAPREG_TYPE(rv) == PCI_MAPREG_TYPE_MEM) {
++			if (PCI_MAPREG_MEM_TYPE(rv) == PCI_MAPREG_MEM_TYPE_64BIT)
++				bar_width = 8;
++
++			size = PCI_MAPREG_MEM_SIZE(rv);
++			base = PCI_MAPREG_MEM_ADDR(oldv);
++			if (pci_show_addrs)
++				cprintf("  mem region %d: %d bytes at 0x%x\n",
++					regnum, size, base);
++		} else {
++			size = PCI_MAPREG_IO_SIZE(rv);
++			base = PCI_MAPREG_IO_ADDR(oldv);
++			if (pci_show_addrs)
++				cprintf("  io region %d: %d bytes at 0x%x\n",
++					regnum, size, base);
++		}
++
++		pci_conf_write(f, bar, oldv);
++		f->reg_base[regnum] = base;
++		f->reg_size[regnum] = size;
++
++		if (size && !base)
++			cprintf("PCI device %x:%x.%d (%x:%x) "
++				"may be misconfigured: "
++				"region %d: base 0x%x, size %d\n",
++				f->bus->busno, f->dev, f->func,
++				PCI_VENDOR(f->dev_id), PCI_PRODUCT(f->dev_id),
++				regnum, base, size);
++	}
++
++	cprintf("PCI function %x:%x.%d (%x:%x) enabled\n",
++		f->bus->busno, f->dev, f->func,
++		PCI_VENDOR(f->dev_id), PCI_PRODUCT(f->dev_id));
++}
++
++int
++pci_init(void)
++{
++	static struct pci_bus root_bus;
++	memset(&root_bus, 0, sizeof(root_bus));
++
++	return pci_scan_bus(&root_bus);
++}
+diff --git a/pci.h b/pci.h
+new file mode 100644
+index 0000000..82f8e47
+--- /dev/null
++++ b/pci.h
+@@ -0,0 +1,38 @@
++#ifndef __XV6_NETSTACK_PCI_H__
++#define __XV6_NETSTACK_PCI_H__
++
++#include "types.h"
++
++// // Since PCI bus addresses have 8-bit for PCI bus,
++// // 5-bit for device , and 3-bit for function numbers for the device
++// // So a total of 2^5 devices per bus
++// #define MAX_DEVICE_PER_PCI_BUS 32
++
++
++enum { pci_res_bus, pci_res_mem, pci_res_io, pci_res_max };
++
++struct pci_bus;
++
++struct pci_func {
++    struct pci_bus *bus;    // Primary bus for bridges
++
++    uint32_t dev;
++    uint32_t func;
++
++    uint32_t dev_id;
++    uint32_t dev_class;
++
++    uint32_t reg_base[6];
++    uint32_t reg_size[6];
++    uint8_t irq_line;
++};
++
++struct pci_bus {
++    struct pci_func *parent_bridge;
++    uint32_t busno;
++};
++
++int  pci_init(void);
++void pci_func_enable(struct pci_func *f);
++
++#endif
+diff --git a/pciregisters.h b/pciregisters.h
+new file mode 100644
+index 0000000..29b3500
+--- /dev/null
++++ b/pciregisters.h
+@@ -0,0 +1,862 @@
++// #ifndef __XV6_NETSTACK_PCI_REGISTERS_H__
++// #define __XV6_NETSTACK_PCI_REGISTERS_H__
++
++// /**
++//  * author: Anmol Vatsa <anvatsa@cs.utah.edu>
++//  *
++//  * PCI Register definitions and convenience macros to access them
++//  * http://wiki.osdev.org/PCI#PCI_Device_Structure
++//  */
++
++// /*
++//  * Device identification register; contains a vendor ID and a device ID.
++//  */
++/*
++#define	PCI_ID_REG			0x00
++
++#define	PCI_VENDOR_SHIFT			0
++#define	PCI_VENDOR_MASK				0xffff
++#define	PCI_VENDOR(id) \
++	    (((id) >> PCI_VENDOR_SHIFT) & PCI_VENDOR_MASK)
++
++#define	PCI_PRODUCT_SHIFT			16
++#define	PCI_PRODUCT_MASK			0xffff
++#define	PCI_PRODUCT(id) \
++	    (((id) >> PCI_PRODUCT_SHIFT) & PCI_PRODUCT_MASK)
++
++#define PCI_ID_CODE(vid,pid)					\
++	((((vid) & PCI_VENDOR_MASK) << PCI_VENDOR_SHIFT) |	\
++	 (((pid) & PCI_PRODUCT_MASK) << PCI_PRODUCT_SHIFT))	\
++*/
++/*
++ * PCI BHLC = BIST/Header Type/Latency Timer/Cache Line Size Register.
++ */
++/*
++#define	PCI_BHLC_REG			0x0c
++
++#define	PCI_BIST_SHIFT				24
++#define	PCI_BIST_MASK				0xff
++#define	PCI_BIST(bhlcr) \
++	    (((bhlcr) >> PCI_BIST_SHIFT) & PCI_BIST_MASK)
++
++#define	PCI_HDRTYPE_SHIFT			16
++#define	PCI_HDRTYPE_MASK			0xff
++#define	PCI_HDRTYPE(bhlcr) \
++	    (((bhlcr) >> PCI_HDRTYPE_SHIFT) & PCI_HDRTYPE_MASK)
++
++#define	PCI_HDRTYPE_TYPE(bhlcr) \
++	    (PCI_HDRTYPE(bhlcr) & 0x7f)
++
++#define IS_PCI_HDRTYPE_PPB(bhlcr) \
++      (PCI_HDRTYPE_TYPE(bhlcr) == PCI_HDRTYPE_PPB)
++
++#define	PCI_HDRTYPE_MULTIFN(bhlcr) \
++	    ((PCI_HDRTYPE(bhlcr) & 0x80) != 0)
++
++#define	PCI_LATTIMER_SHIFT			8
++#define	PCI_LATTIMER_MASK			0xff
++#define	PCI_LATTIMER(bhlcr) \
++	    (((bhlcr) >> PCI_LATTIMER_SHIFT) & PCI_LATTIMER_MASK)
++
++#define	PCI_CACHELINE_SHIFT			0
++#define	PCI_CACHELINE_MASK			0xff
++#define	PCI_CACHELINE(bhlcr) \
++	    (((bhlcr) >> PCI_CACHELINE_SHIFT) & PCI_CACHELINE_MASK)
++*/
++/*
++ * Interrupt Configuration Register; contains interrupt pin and line.
++ */
++/*
++#define	PCI_INTERRUPT_REG		0x3c
++
++#define	PCI_INTERRUPT_PIN_SHIFT			8
++#define	PCI_INTERRUPT_PIN_MASK			0xff
++#define	PCI_INTERRUPT_PIN(icr) \
++	    (((icr) >> PCI_INTERRUPT_PIN_SHIFT) & PCI_INTERRUPT_PIN_MASK)
++
++#define	PCI_INTERRUPT_LINE_SHIFT		0
++#define	PCI_INTERRUPT_LINE_MASK			0xff
++#define	PCI_INTERRUPT_LINE(icr) \
++	    (((icr) >> PCI_INTERRUPT_LINE_SHIFT) & PCI_INTERRUPT_LINE_MASK)
++
++*/
++/*
++ * PCI Class and Revision Register; defines type and revision of device.
++ */
++/*
++#define	PCI_CLASS_REG			0x08
++
++#define	PCI_CLASS_SHIFT				24
++#define	PCI_CLASS_MASK				0xff
++#define	PCI_CLASS(cr) \
++	    (((cr) >> PCI_CLASS_SHIFT) & PCI_CLASS_MASK)
++
++#define	PCI_SUBCLASS_SHIFT			16
++#define	PCI_SUBCLASS_MASK			0xff
++#define	PCI_SUBCLASS(cr) \
++	    (((cr) >> PCI_SUBCLASS_SHIFT) & PCI_SUBCLASS_MASK)
++
++#define PCI_DEVICE_CLASS_NETWORK_CONTROLLER 2
++*/
++/*
++ * Command and status register.
++ */
++/*
++#define	PCI_COMMAND_STATUS_REG			0x04
++
++#define	PCI_COMMAND_IO_ENABLE			0x00000001
++#define	PCI_COMMAND_MEM_ENABLE			0x00000002
++#define	PCI_COMMAND_MASTER_ENABLE		0x00000004
++*/
++/*
++ * Mapping registers
++ */
++/*
++#define	PCI_MAPREG_START		0x10
++#define	PCI_MAPREG_END			0x28
++
++#define PCI_MAPREG_NUM(offset)						\
++(((unsigned)(offset)-PCI_MAPREG_START)/4)
++
++#define	PCI_MAPREG_TYPE_MASK			0x00000001
++#define	PCI_MAPREG_TYPE(mr)						\
++	    ((mr) & PCI_MAPREG_TYPE_MASK)
++
++#define	PCI_MAPREG_TYPE_MEM			0x00000000
++#define	PCI_MAPREG_TYPE_IO			0x00000001
++
++#define	PCI_MAPREG_MEM_TYPE_MASK		0x00000006
++#define	PCI_MAPREG_MEM_TYPE(mr)						\
++ 	    ((mr) & PCI_MAPREG_MEM_TYPE_MASK)
++
++#define	PCI_MAPREG_MEM_TYPE_32BIT		0x00000000
++#define	PCI_MAPREG_MEM_TYPE_64BIT		0x00000004
++
++#define	PCI_MAPREG_MEM_ADDR_MASK		0xfffffff0
++#define	PCI_MAPREG_MEM_ADDR(mr)						\
++	    ((mr) & PCI_MAPREG_MEM_ADDR_MASK)
++
++#define	PCI_MAPREG_MEM_SIZE(mr)						\
++	  (PCI_MAPREG_MEM_ADDR(mr) & -PCI_MAPREG_MEM_ADDR(mr))
++
++#define	PCI_MAPREG_IO_ADDR_MASK			0xfffffffc
++#define	PCI_MAPREG_IO_ADDR(mr)						\
++	    ((mr) & PCI_MAPREG_IO_ADDR_MASK)
++
++#define	PCI_MAPREG_IO_SIZE(mr)						\
++	    (PCI_MAPREG_IO_ADDR(mr) & -PCI_MAPREG_IO_ADDR(mr))
++*/
++
++// #endif
++
++/*	$NetBSD: pcireg.h,v 1.45 2004/02/04 06:58:24 soren Exp $	*/
++
++/*
++ * Copyright (c) 1995, 1996, 1999, 2000
++ *     Christopher G. Demetriou.  All rights reserved.
++ * Copyright (c) 1994, 1996 Charles M. Hannum.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by Charles M. Hannum.
++ * 4. The name of the author may not be used to endorse or promote products
++ *    derived from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _DEV_PCI_PCIREG_H_
++#define	_DEV_PCI_PCIREG_H_
++
++/*
++ * Standardized PCI configuration information
++ *
++ * XXX This is not complete.
++ */
++
++#include "types.h"
++
++/*
++ * Device identification register; contains a vendor ID and a device ID.
++ */
++#define	PCI_ID_REG			0x00
++
++typedef uint16_t pci_vendor_id_t;
++typedef uint16_t pci_product_id_t;
++
++#define	PCI_VENDOR_SHIFT			0
++#define	PCI_VENDOR_MASK				0xffff
++#define	PCI_VENDOR(id) \
++	    (((id) >> PCI_VENDOR_SHIFT) & PCI_VENDOR_MASK)
++
++#define	PCI_PRODUCT_SHIFT			16
++#define	PCI_PRODUCT_MASK			0xffff
++#define	PCI_PRODUCT(id) \
++	    (((id) >> PCI_PRODUCT_SHIFT) & PCI_PRODUCT_MASK)
++
++#define PCI_ID_CODE(vid,pid)					\
++	((((vid) & PCI_VENDOR_MASK) << PCI_VENDOR_SHIFT) |	\
++	 (((pid) & PCI_PRODUCT_MASK) << PCI_PRODUCT_SHIFT))	\
++
++/*
++ * Command and status register.
++ */
++#define	PCI_COMMAND_STATUS_REG			0x04
++#define	PCI_COMMAND_SHIFT			0
++#define	PCI_COMMAND_MASK			0xffff
++#define	PCI_STATUS_SHIFT			16
++#define	PCI_STATUS_MASK				0xffff
++
++#define PCI_COMMAND_STATUS_CODE(cmd,stat)			\
++	((((cmd) & PCI_COMMAND_MASK) >> PCI_COMMAND_SHIFT) |	\
++	 (((stat) & PCI_STATUS_MASK) >> PCI_STATUS_SHIFT))	\
++
++#define	PCI_COMMAND_IO_ENABLE			0x00000001
++#define	PCI_COMMAND_MEM_ENABLE			0x00000002
++#define	PCI_COMMAND_MASTER_ENABLE		0x00000004
++#define	PCI_COMMAND_SPECIAL_ENABLE		0x00000008
++#define	PCI_COMMAND_INVALIDATE_ENABLE		0x00000010
++#define	PCI_COMMAND_PALETTE_ENABLE		0x00000020
++#define	PCI_COMMAND_PARITY_ENABLE		0x00000040
++#define	PCI_COMMAND_STEPPING_ENABLE		0x00000080
++#define	PCI_COMMAND_SERR_ENABLE			0x00000100
++#define	PCI_COMMAND_BACKTOBACK_ENABLE		0x00000200
++
++#define	PCI_STATUS_CAPLIST_SUPPORT		0x00100000
++#define	PCI_STATUS_66MHZ_SUPPORT		0x00200000
++#define	PCI_STATUS_UDF_SUPPORT			0x00400000
++#define	PCI_STATUS_BACKTOBACK_SUPPORT		0x00800000
++#define	PCI_STATUS_PARITY_ERROR			0x01000000
++#define	PCI_STATUS_DEVSEL_FAST			0x00000000
++#define	PCI_STATUS_DEVSEL_MEDIUM		0x02000000
++#define	PCI_STATUS_DEVSEL_SLOW			0x04000000
++#define	PCI_STATUS_DEVSEL_MASK			0x06000000
++#define	PCI_STATUS_TARGET_TARGET_ABORT		0x08000000
++#define	PCI_STATUS_MASTER_TARGET_ABORT		0x10000000
++#define	PCI_STATUS_MASTER_ABORT			0x20000000
++#define	PCI_STATUS_SPECIAL_ERROR		0x40000000
++#define	PCI_STATUS_PARITY_DETECT		0x80000000
++
++/*
++ * PCI Class and Revision Register; defines type and revision of device.
++ */
++#define	PCI_CLASS_REG			0x08
++
++typedef uint8_t pci_class_t;
++typedef uint8_t pci_subclass_t;
++typedef uint8_t pci_interface_t;
++typedef uint8_t pci_revision_t;
++
++#define	PCI_CLASS_SHIFT				24
++#define	PCI_CLASS_MASK				0xff
++#define	PCI_CLASS(cr) \
++	    (((cr) >> PCI_CLASS_SHIFT) & PCI_CLASS_MASK)
++
++#define	PCI_SUBCLASS_SHIFT			16
++#define	PCI_SUBCLASS_MASK			0xff
++#define	PCI_SUBCLASS(cr) \
++	    (((cr) >> PCI_SUBCLASS_SHIFT) & PCI_SUBCLASS_MASK)
++
++#define	PCI_INTERFACE_SHIFT			8
++#define	PCI_INTERFACE_MASK			0xff
++#define	PCI_INTERFACE(cr) \
++	    (((cr) >> PCI_INTERFACE_SHIFT) & PCI_INTERFACE_MASK)
++
++#define	PCI_REVISION_SHIFT			0
++#define	PCI_REVISION_MASK			0xff
++#define	PCI_REVISION(cr) \
++	    (((cr) >> PCI_REVISION_SHIFT) & PCI_REVISION_MASK)
++
++#define	PCI_CLASS_CODE(mainclass, subclass, interface) \
++	    ((((mainclass) & PCI_CLASS_MASK) << PCI_CLASS_SHIFT) | \
++	     (((subclass) & PCI_SUBCLASS_MASK) << PCI_SUBCLASS_SHIFT) | \
++	     (((interface) & PCI_INTERFACE_MASK) << PCI_INTERFACE_SHIFT))
++
++/* base classes */
++#define	PCI_CLASS_PREHISTORIC			0x00
++#define	PCI_CLASS_MASS_STORAGE			0x01
++#define	PCI_CLASS_NETWORK			0x02
++#define	PCI_CLASS_DISPLAY			0x03
++#define	PCI_CLASS_MULTIMEDIA			0x04
++#define	PCI_CLASS_MEMORY			0x05
++#define	PCI_CLASS_BRIDGE			0x06
++#define	PCI_CLASS_COMMUNICATIONS		0x07
++#define	PCI_CLASS_SYSTEM			0x08
++#define	PCI_CLASS_INPUT				0x09
++#define	PCI_CLASS_DOCK				0x0a
++#define	PCI_CLASS_PROCESSOR			0x0b
++#define	PCI_CLASS_SERIALBUS			0x0c
++#define	PCI_CLASS_WIRELESS			0x0d
++#define	PCI_CLASS_I2O				0x0e
++#define	PCI_CLASS_SATCOM			0x0f
++#define	PCI_CLASS_CRYPTO			0x10
++#define	PCI_CLASS_DASP				0x11
++#define	PCI_CLASS_UNDEFINED			0xff
++
++/* 0x00 prehistoric subclasses */
++#define	PCI_SUBCLASS_PREHISTORIC_MISC		0x00
++#define	PCI_SUBCLASS_PREHISTORIC_VGA		0x01
++
++/* 0x01 mass storage subclasses */
++#define	PCI_SUBCLASS_MASS_STORAGE_SCSI		0x00
++#define	PCI_SUBCLASS_MASS_STORAGE_IDE		0x01
++#define	PCI_SUBCLASS_MASS_STORAGE_FLOPPY	0x02
++#define	PCI_SUBCLASS_MASS_STORAGE_IPI		0x03
++#define	PCI_SUBCLASS_MASS_STORAGE_RAID		0x04
++#define	PCI_SUBCLASS_MASS_STORAGE_ATA		0x05
++#define	PCI_SUBCLASS_MASS_STORAGE_SATA		0x06
++#define	PCI_SUBCLASS_MASS_STORAGE_MISC		0x80
++
++/* 0x02 network subclasses */
++#define	PCI_SUBCLASS_NETWORK_ETHERNET		0x00
++#define	PCI_SUBCLASS_NETWORK_TOKENRING		0x01
++#define	PCI_SUBCLASS_NETWORK_FDDI		0x02
++#define	PCI_SUBCLASS_NETWORK_ATM		0x03
++#define	PCI_SUBCLASS_NETWORK_ISDN		0x04
++#define	PCI_SUBCLASS_NETWORK_WORLDFIP		0x05
++#define	PCI_SUBCLASS_NETWORK_PCIMGMULTICOMP	0x06
++#define	PCI_SUBCLASS_NETWORK_MISC		0x80
++
++/* 0x03 display subclasses */
++#define	PCI_SUBCLASS_DISPLAY_VGA		0x00
++#define	PCI_SUBCLASS_DISPLAY_XGA		0x01
++#define	PCI_SUBCLASS_DISPLAY_3D			0x02
++#define	PCI_SUBCLASS_DISPLAY_MISC		0x80
++
++/* 0x04 multimedia subclasses */
++#define	PCI_SUBCLASS_MULTIMEDIA_VIDEO		0x00
++#define	PCI_SUBCLASS_MULTIMEDIA_AUDIO		0x01
++#define	PCI_SUBCLASS_MULTIMEDIA_TELEPHONY	0x02
++#define	PCI_SUBCLASS_MULTIMEDIA_MISC		0x80
++
++/* 0x05 memory subclasses */
++#define	PCI_SUBCLASS_MEMORY_RAM			0x00
++#define	PCI_SUBCLASS_MEMORY_FLASH		0x01
++#define	PCI_SUBCLASS_MEMORY_MISC		0x80
++
++/* 0x06 bridge subclasses */
++#define	PCI_SUBCLASS_BRIDGE_HOST		0x00
++#define	PCI_SUBCLASS_BRIDGE_ISA			0x01
++#define	PCI_SUBCLASS_BRIDGE_EISA		0x02
++#define	PCI_SUBCLASS_BRIDGE_MC			0x03	/* XXX _MCA? */
++#define	PCI_SUBCLASS_BRIDGE_PCI			0x04
++#define	PCI_SUBCLASS_BRIDGE_PCMCIA		0x05
++#define	PCI_SUBCLASS_BRIDGE_NUBUS		0x06
++#define	PCI_SUBCLASS_BRIDGE_CARDBUS		0x07
++#define	PCI_SUBCLASS_BRIDGE_RACEWAY		0x08
++#define	PCI_SUBCLASS_BRIDGE_STPCI		0x09
++#define	PCI_SUBCLASS_BRIDGE_INFINIBAND		0x0a
++#define	PCI_SUBCLASS_BRIDGE_MISC		0x80
++
++/* 0x07 communications subclasses */
++#define	PCI_SUBCLASS_COMMUNICATIONS_SERIAL	0x00
++#define	PCI_SUBCLASS_COMMUNICATIONS_PARALLEL	0x01
++#define	PCI_SUBCLASS_COMMUNICATIONS_MPSERIAL	0x02
++#define	PCI_SUBCLASS_COMMUNICATIONS_MODEM	0x03
++#define	PCI_SUBCLASS_COMMUNICATIONS_GPIB	0x04
++#define	PCI_SUBCLASS_COMMUNICATIONS_SMARTCARD	0x05
++#define	PCI_SUBCLASS_COMMUNICATIONS_MISC	0x80
++
++/* 0x08 system subclasses */
++#define	PCI_SUBCLASS_SYSTEM_PIC			0x00
++#define	PCI_SUBCLASS_SYSTEM_DMA			0x01
++#define	PCI_SUBCLASS_SYSTEM_TIMER		0x02
++#define	PCI_SUBCLASS_SYSTEM_RTC			0x03
++#define	PCI_SUBCLASS_SYSTEM_PCIHOTPLUG		0x04
++#define	PCI_SUBCLASS_SYSTEM_MISC		0x80
++
++/* 0x09 input subclasses */
++#define	PCI_SUBCLASS_INPUT_KEYBOARD		0x00
++#define	PCI_SUBCLASS_INPUT_DIGITIZER		0x01
++#define	PCI_SUBCLASS_INPUT_MOUSE		0x02
++#define	PCI_SUBCLASS_INPUT_SCANNER		0x03
++#define	PCI_SUBCLASS_INPUT_GAMEPORT		0x04
++#define	PCI_SUBCLASS_INPUT_MISC			0x80
++
++/* 0x0a dock subclasses */
++#define	PCI_SUBCLASS_DOCK_GENERIC		0x00
++#define	PCI_SUBCLASS_DOCK_MISC			0x80
++
++/* 0x0b processor subclasses */
++#define	PCI_SUBCLASS_PROCESSOR_386		0x00
++#define	PCI_SUBCLASS_PROCESSOR_486		0x01
++#define	PCI_SUBCLASS_PROCESSOR_PENTIUM		0x02
++#define	PCI_SUBCLASS_PROCESSOR_ALPHA		0x10
++#define	PCI_SUBCLASS_PROCESSOR_POWERPC		0x20
++#define	PCI_SUBCLASS_PROCESSOR_MIPS		0x30
++#define	PCI_SUBCLASS_PROCESSOR_COPROC		0x40
++
++/* 0x0c serial bus subclasses */
++#define	PCI_SUBCLASS_SERIALBUS_FIREWIRE		0x00
++#define	PCI_SUBCLASS_SERIALBUS_ACCESS		0x01
++#define	PCI_SUBCLASS_SERIALBUS_SSA		0x02
++#define	PCI_SUBCLASS_SERIALBUS_USB		0x03
++#define	PCI_SUBCLASS_SERIALBUS_FIBER		0x04	/* XXX _FIBRECHANNEL */
++#define	PCI_SUBCLASS_SERIALBUS_SMBUS		0x05
++#define	PCI_SUBCLASS_SERIALBUS_INFINIBAND	0x06
++#define	PCI_SUBCLASS_SERIALBUS_IPMI		0x07
++#define	PCI_SUBCLASS_SERIALBUS_SERCOS		0x08
++#define	PCI_SUBCLASS_SERIALBUS_CANBUS		0x09
++
++/* 0x0d wireless subclasses */
++#define	PCI_SUBCLASS_WIRELESS_IRDA		0x00
++#define	PCI_SUBCLASS_WIRELESS_CONSUMERIR	0x01
++#define	PCI_SUBCLASS_WIRELESS_RF		0x10
++#define	PCI_SUBCLASS_WIRELESS_BLUETOOTH		0x11
++#define	PCI_SUBCLASS_WIRELESS_BROADBAND		0x12
++#define	PCI_SUBCLASS_WIRELESS_802_11A		0x20
++#define	PCI_SUBCLASS_WIRELESS_802_11B		0x21
++#define	PCI_SUBCLASS_WIRELESS_MISC		0x80
++
++/* 0x0e I2O (Intelligent I/O) subclasses */
++#define	PCI_SUBCLASS_I2O_STANDARD		0x00
++
++/* 0x0f satellite communication subclasses */
++/*	PCI_SUBCLASS_SATCOM_???			0x00	/ * XXX ??? */
++#define	PCI_SUBCLASS_SATCOM_TV			0x01
++#define	PCI_SUBCLASS_SATCOM_AUDIO		0x02
++#define	PCI_SUBCLASS_SATCOM_VOICE		0x03
++#define	PCI_SUBCLASS_SATCOM_DATA		0x04
++
++/* 0x10 encryption/decryption subclasses */
++#define	PCI_SUBCLASS_CRYPTO_NETCOMP		0x00
++#define	PCI_SUBCLASS_CRYPTO_ENTERTAINMENT	0x10
++#define	PCI_SUBCLASS_CRYPTO_MISC		0x80
++
++/* 0x11 data acquisition and signal processing subclasses */
++#define	PCI_SUBCLASS_DASP_DPIO			0x00
++#define	PCI_SUBCLASS_DASP_TIMEFREQ		0x01
++#define	PCI_SUBCLASS_DASP_SYNC			0x10
++#define	PCI_SUBCLASS_DASP_MGMT			0x20
++#define	PCI_SUBCLASS_DASP_MISC			0x80
++
++/*
++ * PCI BIST/Header Type/Latency Timer/Cache Line Size Register.
++ */
++#define	PCI_BHLC_REG			0x0c
++
++#define	PCI_BIST_SHIFT				24
++#define	PCI_BIST_MASK				0xff
++#define	PCI_BIST(bhlcr) \
++	    (((bhlcr) >> PCI_BIST_SHIFT) & PCI_BIST_MASK)
++
++#define	PCI_HDRTYPE_SHIFT			16
++#define	PCI_HDRTYPE_MASK			0xff
++#define	PCI_HDRTYPE(bhlcr) \
++	    (((bhlcr) >> PCI_HDRTYPE_SHIFT) & PCI_HDRTYPE_MASK)
++
++#define	PCI_HDRTYPE_TYPE(bhlcr) \
++	    (PCI_HDRTYPE(bhlcr) & 0x7f)
++#define	PCI_HDRTYPE_MULTIFN(bhlcr) \
++	    ((PCI_HDRTYPE(bhlcr) & 0x80) != 0)
++
++#define	PCI_LATTIMER_SHIFT			8
++#define	PCI_LATTIMER_MASK			0xff
++#define	PCI_LATTIMER(bhlcr) \
++	    (((bhlcr) >> PCI_LATTIMER_SHIFT) & PCI_LATTIMER_MASK)
++
++#define	PCI_CACHELINE_SHIFT			0
++#define	PCI_CACHELINE_MASK			0xff
++#define	PCI_CACHELINE(bhlcr) \
++	    (((bhlcr) >> PCI_CACHELINE_SHIFT) & PCI_CACHELINE_MASK)
++
++#define PCI_BHLC_CODE(bist,type,multi,latency,cacheline)		\
++	    ((((bist) & PCI_BIST_MASK) << PCI_BIST_SHIFT) |		\
++	     (((type) & PCI_HDRTYPE_MASK) << PCI_HDRTYPE_SHIFT) |	\
++	     (((multi)?0x80:0) << PCI_HDRTYPE_SHIFT) |			\
++	     (((latency) & PCI_LATTIMER_MASK) << PCI_LATTIMER_SHIFT) |	\
++	     (((cacheline) & PCI_CACHELINE_MASK) << PCI_CACHELINE_SHIFT))
++
++/*
++ * PCI header type
++ */
++#define PCI_HDRTYPE_DEVICE	0
++#define PCI_HDRTYPE_PPB		1
++#define PCI_HDRTYPE_PCB		2
++
++/*
++ * Mapping registers
++ */
++#define	PCI_MAPREG_START		0x10
++#define	PCI_MAPREG_END			0x28
++#define	PCI_MAPREG_ROM			0x30
++#define	PCI_MAPREG_PPB_END		0x18
++#define	PCI_MAPREG_PCB_END		0x14
++
++#define	PCI_MAPREG_TYPE(mr)						\
++	    ((mr) & PCI_MAPREG_TYPE_MASK)
++#define	PCI_MAPREG_TYPE_MASK			0x00000001
++
++#define	PCI_MAPREG_TYPE_MEM			0x00000000
++#define	PCI_MAPREG_TYPE_IO			0x00000001
++#define	PCI_MAPREG_ROM_ENABLE			0x00000001
++
++#define	PCI_MAPREG_MEM_TYPE(mr)						\
++	    ((mr) & PCI_MAPREG_MEM_TYPE_MASK)
++#define	PCI_MAPREG_MEM_TYPE_MASK		0x00000006
++
++#define	PCI_MAPREG_MEM_TYPE_32BIT		0x00000000
++#define	PCI_MAPREG_MEM_TYPE_32BIT_1M		0x00000002
++#define	PCI_MAPREG_MEM_TYPE_64BIT		0x00000004
++
++#define	PCI_MAPREG_MEM_PREFETCHABLE(mr)				\
++	    (((mr) & PCI_MAPREG_MEM_PREFETCHABLE_MASK) != 0)
++#define	PCI_MAPREG_MEM_PREFETCHABLE_MASK	0x00000008
++
++#define	PCI_MAPREG_MEM_ADDR(mr)						\
++	    ((mr) & PCI_MAPREG_MEM_ADDR_MASK)
++#define	PCI_MAPREG_MEM_SIZE(mr)						\
++	    (PCI_MAPREG_MEM_ADDR(mr) & -PCI_MAPREG_MEM_ADDR(mr))
++#define	PCI_MAPREG_MEM_ADDR_MASK		0xfffffff0
++
++#define	PCI_MAPREG_MEM64_ADDR(mr)					\
++	    ((mr) & PCI_MAPREG_MEM64_ADDR_MASK)
++#define	PCI_MAPREG_MEM64_SIZE(mr)					\
++	    (PCI_MAPREG_MEM64_ADDR(mr) & -PCI_MAPREG_MEM64_ADDR(mr))
++#define	PCI_MAPREG_MEM64_ADDR_MASK		0xfffffffffffffff0ULL
++
++#define	PCI_MAPREG_IO_ADDR(mr)						\
++	    ((mr) & PCI_MAPREG_IO_ADDR_MASK)
++#define	PCI_MAPREG_IO_SIZE(mr)						\
++	    (PCI_MAPREG_IO_ADDR(mr) & -PCI_MAPREG_IO_ADDR(mr))
++#define	PCI_MAPREG_IO_ADDR_MASK			0xfffffffc
++
++#define PCI_MAPREG_SIZE_TO_MASK(size)					\
++	    (-(size))
++
++#define PCI_MAPREG_NUM(offset)						\
++	    (((unsigned)(offset)-PCI_MAPREG_START)/4)
++
++
++/*
++ * Cardbus CIS pointer (PCI rev. 2.1)
++ */
++#define PCI_CARDBUS_CIS_REG 0x28
++
++/*
++ * Subsystem identification register; contains a vendor ID and a device ID.
++ * Types/macros for PCI_ID_REG apply.
++ * (PCI rev. 2.1)
++ */
++#define PCI_SUBSYS_ID_REG 0x2c
++
++/*
++ * Capabilities link list (PCI rev. 2.2)
++ */
++#define	PCI_CAPLISTPTR_REG		0x34	/* header type 0 */
++#define	PCI_CARDBUS_CAPLISTPTR_REG	0x14	/* header type 2 */
++#define	PCI_CAPLIST_PTR(cpr)	((cpr) & 0xff)
++#define	PCI_CAPLIST_NEXT(cr)	(((cr) >> 8) & 0xff)
++#define	PCI_CAPLIST_CAP(cr)	((cr) & 0xff)
++
++#define	PCI_CAP_RESERVED0	0x00
++#define	PCI_CAP_PWRMGMT		0x01
++#define	PCI_CAP_AGP		0x02
++#define PCI_CAP_AGP_MAJOR(cr)	(((cr) >> 20) & 0xf)
++#define PCI_CAP_AGP_MINOR(cr)	(((cr) >> 16) & 0xf)
++#define	PCI_CAP_VPD		0x03
++#define	PCI_CAP_SLOTID		0x04
++#define	PCI_CAP_MSI		0x05
++#define	PCI_CAP_CPCI_HOTSWAP	0x06
++#define	PCI_CAP_PCIX		0x07
++#define	PCI_CAP_LDT		0x08
++#define	PCI_CAP_VENDSPEC	0x09
++#define	PCI_CAP_DEBUGPORT	0x0a
++#define	PCI_CAP_CPCI_RSRCCTL	0x0b
++#define	PCI_CAP_HOTPLUG		0x0c
++#define	PCI_CAP_AGP8		0x0e
++#define	PCI_CAP_SECURE		0x0f
++#define	PCI_CAP_PCIEXPRESS     	0x10
++#define	PCI_CAP_MSIX		0x11
++
++/*
++ * Vital Product Data; access via capability pointer (PCI rev 2.2).
++ */
++#define	PCI_VPD_ADDRESS_MASK	0x7fff
++#define	PCI_VPD_ADDRESS_SHIFT	16
++#define	PCI_VPD_ADDRESS(ofs)	\
++	(((ofs) & PCI_VPD_ADDRESS_MASK) << PCI_VPD_ADDRESS_SHIFT)
++#define	PCI_VPD_DATAREG(ofs)	((ofs) + 4)
++#define	PCI_VPD_OPFLAG		0x80000000
++
++/*
++ * Power Management Capability; access via capability pointer.
++ */
++
++/* Power Management Capability Register */
++#define PCI_PMCR		0x02
++#define PCI_PMCR_D1SUPP		0x0200
++#define PCI_PMCR_D2SUPP		0x0400
++/* Power Management Control Status Register */
++#define PCI_PMCSR		0x04
++#define PCI_PMCSR_STATE_MASK	0x03
++#define PCI_PMCSR_STATE_D0      0x00
++#define PCI_PMCSR_STATE_D1      0x01
++#define PCI_PMCSR_STATE_D2      0x02
++#define PCI_PMCSR_STATE_D3      0x03
++
++/*
++ * PCI-X capability.
++ */
++
++/*
++ * Command. 16 bits at offset 2 (e.g. upper 16 bits of the first 32-bit
++ * word at the capability; the lower 16 bits are the capability ID and
++ * next capability pointer).
++ *
++ * Since we always read PCI config space in 32-bit words, we define these
++ * as 32-bit values, offset and shifted appropriately.  Make sure you perform
++ * the appropriate R/M/W cycles!
++ */
++#define PCI_PCIX_CMD			0x00
++#define PCI_PCIX_CMD_PERR_RECOVER	0x00010000
++#define PCI_PCIX_CMD_RELAXED_ORDER	0x00020000
++#define PCI_PCIX_CMD_BYTECNT_MASK	0x000c0000
++#define	PCI_PCIX_CMD_BYTECNT_SHIFT	18
++#define		PCI_PCIX_CMD_BCNT_512		0x00000000
++#define		PCI_PCIX_CMD_BCNT_1024		0x00040000
++#define		PCI_PCIX_CMD_BCNT_2048		0x00080000
++#define		PCI_PCIX_CMD_BCNT_4096		0x000c0000
++#define PCI_PCIX_CMD_SPLTRANS_MASK	0x00700000
++#define		PCI_PCIX_CMD_SPLTRANS_1		0x00000000
++#define		PCI_PCIX_CMD_SPLTRANS_2		0x00100000
++#define		PCI_PCIX_CMD_SPLTRANS_3		0x00200000
++#define		PCI_PCIX_CMD_SPLTRANS_4		0x00300000
++#define		PCI_PCIX_CMD_SPLTRANS_8		0x00400000
++#define		PCI_PCIX_CMD_SPLTRANS_12	0x00500000
++#define		PCI_PCIX_CMD_SPLTRANS_16	0x00600000
++#define		PCI_PCIX_CMD_SPLTRANS_32	0x00700000
++
++/*
++ * Status. 32 bits at offset 4.
++ */
++#define PCI_PCIX_STATUS			0x04
++#define PCI_PCIX_STATUS_FN_MASK		0x00000007
++#define PCI_PCIX_STATUS_DEV_MASK	0x000000f8
++#define PCI_PCIX_STATUS_BUS_MASK	0x0000ff00
++#define PCI_PCIX_STATUS_64BIT		0x00010000
++#define PCI_PCIX_STATUS_133		0x00020000
++#define PCI_PCIX_STATUS_SPLDISC		0x00040000
++#define PCI_PCIX_STATUS_SPLUNEX		0x00080000
++#define PCI_PCIX_STATUS_DEVCPLX		0x00100000
++#define PCI_PCIX_STATUS_MAXB_MASK	0x00600000
++#define	PCI_PCIX_STATUS_MAXB_SHIFT	21
++#define		PCI_PCIX_STATUS_MAXB_512	0x00000000
++#define		PCI_PCIX_STATUS_MAXB_1024	0x00200000
++#define		PCI_PCIX_STATUS_MAXB_2048	0x00400000
++#define		PCI_PCIX_STATUS_MAXB_4096	0x00600000
++#define PCI_PCIX_STATUS_MAXST_MASK	0x03800000
++#define		PCI_PCIX_STATUS_MAXST_1		0x00000000
++#define		PCI_PCIX_STATUS_MAXST_2		0x00800000
++#define		PCI_PCIX_STATUS_MAXST_3		0x01000000
++#define		PCI_PCIX_STATUS_MAXST_4		0x01800000
++#define		PCI_PCIX_STATUS_MAXST_8		0x02000000
++#define		PCI_PCIX_STATUS_MAXST_12	0x02800000
++#define		PCI_PCIX_STATUS_MAXST_16	0x03000000
++#define		PCI_PCIX_STATUS_MAXST_32	0x03800000
++#define PCI_PCIX_STATUS_MAXRS_MASK	0x1c000000
++#define		PCI_PCIX_STATUS_MAXRS_1K	0x00000000
++#define		PCI_PCIX_STATUS_MAXRS_2K	0x04000000
++#define		PCI_PCIX_STATUS_MAXRS_4K	0x08000000
++#define		PCI_PCIX_STATUS_MAXRS_8K	0x0c000000
++#define		PCI_PCIX_STATUS_MAXRS_16K	0x10000000
++#define		PCI_PCIX_STATUS_MAXRS_32K	0x14000000
++#define		PCI_PCIX_STATUS_MAXRS_64K	0x18000000
++#define		PCI_PCIX_STATUS_MAXRS_128K	0x1c000000
++#define PCI_PCIX_STATUS_SCERR			0x20000000
++
++
++/*
++ * Interrupt Configuration Register; contains interrupt pin and line.
++ */
++#define	PCI_INTERRUPT_REG		0x3c
++
++typedef uint8_t pci_intr_latency_t;
++typedef uint8_t pci_intr_grant_t;
++typedef uint8_t pci_intr_pin_t;
++typedef uint8_t pci_intr_line_t;
++
++#define PCI_MAX_LAT_SHIFT			24
++#define	PCI_MAX_LAT_MASK			0xff
++#define	PCI_MAX_LAT(icr) \
++	    (((icr) >> PCI_MAX_LAT_SHIFT) & PCI_MAX_LAT_MASK)
++
++#define PCI_MIN_GNT_SHIFT			16
++#define	PCI_MIN_GNT_MASK			0xff
++#define	PCI_MIN_GNT(icr) \
++	    (((icr) >> PCI_MIN_GNT_SHIFT) & PCI_MIN_GNT_MASK)
++
++#define	PCI_INTERRUPT_GRANT_SHIFT		24
++#define	PCI_INTERRUPT_GRANT_MASK		0xff
++#define	PCI_INTERRUPT_GRANT(icr) \
++	    (((icr) >> PCI_INTERRUPT_GRANT_SHIFT) & PCI_INTERRUPT_GRANT_MASK)
++
++#define	PCI_INTERRUPT_LATENCY_SHIFT		16
++#define	PCI_INTERRUPT_LATENCY_MASK		0xff
++#define	PCI_INTERRUPT_LATENCY(icr) \
++	    (((icr) >> PCI_INTERRUPT_LATENCY_SHIFT) & PCI_INTERRUPT_LATENCY_MASK)
++
++#define	PCI_INTERRUPT_PIN_SHIFT			8
++#define	PCI_INTERRUPT_PIN_MASK			0xff
++#define	PCI_INTERRUPT_PIN(icr) \
++	    (((icr) >> PCI_INTERRUPT_PIN_SHIFT) & PCI_INTERRUPT_PIN_MASK)
++
++#define	PCI_INTERRUPT_LINE_SHIFT		0
++#define	PCI_INTERRUPT_LINE_MASK			0xff
++#define	PCI_INTERRUPT_LINE(icr) \
++	    (((icr) >> PCI_INTERRUPT_LINE_SHIFT) & PCI_INTERRUPT_LINE_MASK)
++
++#define PCI_INTERRUPT_CODE(lat,gnt,pin,line)		\
++	  ((((lat)&PCI_INTERRUPT_LATENCY_MASK)<<PCI_INTERRUPT_LATENCY_SHIFT)| \
++	   (((gnt)&PCI_INTERRUPT_GRANT_MASK)  <<PCI_INTERRUPT_GRANT_SHIFT)  | \
++	   (((pin)&PCI_INTERRUPT_PIN_MASK)    <<PCI_INTERRUPT_PIN_SHIFT)    | \
++	   (((line)&PCI_INTERRUPT_LINE_MASK)  <<PCI_INTERRUPT_LINE_SHIFT))
++
++#define	PCI_INTERRUPT_PIN_NONE			0x00
++#define	PCI_INTERRUPT_PIN_A			0x01
++#define	PCI_INTERRUPT_PIN_B			0x02
++#define	PCI_INTERRUPT_PIN_C			0x03
++#define	PCI_INTERRUPT_PIN_D			0x04
++#define	PCI_INTERRUPT_PIN_MAX			0x04
++
++/* Header Type 1 (Bridge) configuration registers */
++#define PCI_BRIDGE_BUS_REG		0x18
++#define   PCI_BRIDGE_BUS_PRIMARY_SHIFT		0
++#define   PCI_BRIDGE_BUS_SECONDARY_SHIFT	8
++#define   PCI_BRIDGE_BUS_SUBORDINATE_SHIFT	16
++
++#define PCI_BRIDGE_STATIO_REG		0x1C
++#define	  PCI_BRIDGE_STATIO_IOBASE_SHIFT	0
++#define	  PCI_BRIDGE_STATIO_IOLIMIT_SHIFT	8
++#define	  PCI_BRIDGE_STATIO_STATUS_SHIFT	16
++#define	  PCI_BRIDGE_STATIO_IOBASE_MASK		0xf0
++#define	  PCI_BRIDGE_STATIO_IOLIMIT_MASK	0xf0
++#define	  PCI_BRIDGE_STATIO_STATUS_MASK		0xffff
++#define	  PCI_BRIDGE_IO_32BITS(reg)		(((reg) & 0xf) == 1)
++
++#define PCI_BRIDGE_MEMORY_REG		0x20
++#define	  PCI_BRIDGE_MEMORY_BASE_SHIFT		4
++#define	  PCI_BRIDGE_MEMORY_LIMIT_SHIFT		20
++#define	  PCI_BRIDGE_MEMORY_BASE_MASK		0xffff
++#define	  PCI_BRIDGE_MEMORY_LIMIT_MASK		0xffff
++
++#define PCI_BRIDGE_PREFETCHMEM_REG	0x24
++#define	  PCI_BRIDGE_PREFETCHMEM_BASE_SHIFT	4
++#define	  PCI_BRIDGE_PREFETCHMEM_LIMIT_SHIFT	20
++#define	  PCI_BRIDGE_PREFETCHMEM_BASE_MASK	0xffff
++#define	  PCI_BRIDGE_PREFETCHMEM_LIMIT_MASK	0xffff
++#define	  PCI_BRIDGE_PREFETCHMEM_64BITS(reg)	((reg) & 0xf)
++
++#define PCI_BRIDGE_PREFETCHBASE32_REG	0x28
++#define PCI_BRIDGE_PREFETCHLIMIT32_REG	0x2C
++
++#define PCI_BRIDGE_IOHIGH_REG		0x30
++#define	  PCI_BRIDGE_IOHIGH_BASE_SHIFT		0
++#define	  PCI_BRIDGE_IOHIGH_LIMIT_SHIFT		16
++#define	  PCI_BRIDGE_IOHIGH_BASE_MASK		0xffff
++#define	  PCI_BRIDGE_IOHIGH_LIMIT_MASK		0xffff
++
++#define PCI_BRIDGE_CONTROL_REG		0x3C
++#define	  PCI_BRIDGE_CONTROL_SHIFT		16
++#define	  PCI_BRIDGE_CONTROL_MASK		0xffff
++#define   PCI_BRIDGE_CONTROL_PERE		(1 <<  0)
++#define   PCI_BRIDGE_CONTROL_SERR		(1 <<  1)
++#define   PCI_BRIDGE_CONTROL_ISA		(1 <<  2)
++#define   PCI_BRIDGE_CONTROL_VGA		(1 <<  3)
++/* Reserved					(1 <<  4) */
++#define   PCI_BRIDGE_CONTROL_MABRT		(1 <<  5)
++#define   PCI_BRIDGE_CONTROL_SECBR		(1 <<  6)
++#define   PCI_BRIDGE_CONTROL_SECFASTB2B		(1 <<  7)
++#define   PCI_BRIDGE_CONTROL_PRI_DISC_TIMER	(1 <<  8)
++#define   PCI_BRIDGE_CONTROL_SEC_DISC_TIMER	(1 <<  9)
++#define   PCI_BRIDGE_CONTROL_DISC_TIMER_STAT	(1 << 10)
++#define   PCI_BRIDGE_CONTROL_DISC_TIMER_SERR	(1 << 11)
++/* Reserved					(1 << 12) - (1 << 15) */
++
++/*
++ * Vital Product Data resource tags.
++ */
++struct pci_vpd_smallres {
++	uint8_t		vpdres_byte0;		/* length of data + tag */
++	/* Actual data. */
++} __attribute__((__packed__));
++
++struct pci_vpd_largeres {
++	uint8_t		vpdres_byte0;
++	uint8_t		vpdres_len_lsb;		/* length of data only */
++	uint8_t		vpdres_len_msb;
++	/* Actual data. */
++} __attribute__((__packed__));
++
++#define	PCI_VPDRES_ISLARGE(x)			((x) & 0x80)
++
++#define	PCI_VPDRES_SMALL_LENGTH(x)		((x) & 0x7)
++#define	PCI_VPDRES_SMALL_NAME(x)		(((x) >> 3) & 0xf)
++
++#define	PCI_VPDRES_LARGE_NAME(x)		((x) & 0x7f)
++
++#define	PCI_VPDRES_TYPE_COMPATIBLE_DEVICE_ID	0x3	/* small */
++#define	PCI_VPDRES_TYPE_VENDOR_DEFINED		0xe	/* small */
++#define	PCI_VPDRES_TYPE_END_TAG			0xf	/* small */
++
++#define	PCI_VPDRES_TYPE_IDENTIFIER_STRING	0x02	/* large */
++#define	PCI_VPDRES_TYPE_VPD			0x10	/* large */
++
++struct pci_vpd {
++	uint8_t		vpd_key0;
++	uint8_t		vpd_key1;
++	uint8_t		vpd_len;		/* length of data only */
++	/* Actual data. */
++} __attribute__((__packed__));
++
++/*
++ * Recommended VPD fields:
++ *
++ *	PN		Part number of assembly
++ *	FN		FRU part number
++ *	EC		EC level of assembly
++ *	MN		Manufacture ID
++ *	SN		Serial Number
++ *
++ * Conditionally recommended VPD fields:
++ *
++ *	LI		Load ID
++ *	RL		ROM Level
++ *	RM		Alterable ROM Level
++ *	NA		Network Address
++ *	DD		Device Driver Level
++ *	DG		Diagnostic Level
++ *	LL		Loadable Microcode Level
++ *	VI		Vendor ID/Device ID
++ *	FU		Function Number
++ *	SI		Subsystem Vendor ID/Subsystem ID
++ *
++ * Additional VPD fields:
++ *
++ *	Z0-ZZ		User/Product Specific
++ */
++
++/*
++ * Threshold below which 32bit PCI DMA needs bouncing.
++ */
++#define PCI32_DMA_BOUNCE_THRESHOLD	0x100000000ULL
++
++#endif /* _DEV_PCI_PCIREG_H_ */
++
+diff --git a/picirq.c b/picirq.c
+index e26957f..a9de0ee 100644
+--- a/picirq.c
++++ b/picirq.c
+@@ -6,6 +6,35 @@
+ #define IO_PIC1         0x20    // Master (IRQs 0-7)
+ #define IO_PIC2         0xA0    // Slave (IRQs 8-15)
+ 
++// // Don't use the 8259A interrupt controllers.  Xv6 assumes SMP hardware.
++// void
++// picinit(void)
++// {
++//   // mask all interrupts
++//   outb(IO_PIC1+1, 0xFF);
++//   outb(IO_PIC2+1, 0xFF);
++// }
++
++#define IRQ_SLAVE       2       // IRQ at which slave connects to master
++
++// Current IRQ mask.
++// Initial IRQ mask has interrupt 2 enabled (for slave 8259A).
++static ushort irqmask = 0xFFFF & ~(1<<IRQ_SLAVE);
++
++static void
++picsetmask(ushort mask)
++{
++  irqmask = mask;
++  outb(IO_PIC1+1, mask);
++  outb(IO_PIC2+1, mask >> 8);
++}
++
++void
++picenable(int irq)
++{
++  picsetmask(irqmask & ~(1<<irq));
++}
++
+ // Don't use the 8259A interrupt controllers.  Xv6 assumes SMP hardware.
+ void
+ picinit(void)
+@@ -13,6 +42,52 @@ picinit(void)
+   // mask all interrupts
+   outb(IO_PIC1+1, 0xFF);
+   outb(IO_PIC2+1, 0xFF);
++
++  // Set up master (8259A-1)
++
++ // ICW1:  0001g0hi
++ //    g:  0 = edge triggering, 1 = level triggering
++ //    h:  0 = cascaded PICs, 1 = master only
++ //    i:  0 = no ICW4, 1 = ICW4 required
++ outb(IO_PIC1, 0x11);
++
++ // ICW2:  Vector offset
++ outb(IO_PIC1+1, T_IRQ0);
++
++ // ICW3:  (master PIC) bit mask of IR lines connected to slaves
++ //        (slave PIC) 3-bit # of slave's connection to master
++ outb(IO_PIC1+1, 1<<IRQ_SLAVE);
++
++ // ICW4:  000nbmap
++ //    n:  1 = special fully nested mode
++ //    b:  1 = buffered mode
++ //    m:  0 = slave PIC, 1 = master PIC
++ //      (ignored when b is 0, as the master/slave role
++ //      can be hardwired).
++ //    a:  1 = Automatic EOI mode
++ //    p:  0 = MCS-80/85 mode, 1 = intel x86 mode
++ outb(IO_PIC1+1, 0x3);
++
++ // Set up slave (8259A-2)
++ outb(IO_PIC2, 0x11);                  // ICW1
++ outb(IO_PIC2+1, T_IRQ0 + 8);      // ICW2
++ outb(IO_PIC2+1, IRQ_SLAVE);           // ICW3
++ // NB Automatic EOI mode doesn't tend to work on the slave.
++ // Linux source code says it's "to be investigated".
++ outb(IO_PIC2+1, 0x3);                 // ICW4
++
++ // OCW3:  0ef01prs
++ //   ef:  0x = NOP, 10 = clear specific mask, 11 = set specific mask
++ //    p:  0 = no polling, 1 = polling mode
++ //   rs:  0x = NOP, 10 = read IRR, 11 = read ISR
++ outb(IO_PIC1, 0x68);             // clear specific mask
++ outb(IO_PIC1, 0x0a);             // read IRR by default
++
++ outb(IO_PIC2, 0x68);             // OCW3
++ outb(IO_PIC2, 0x0a);             // OCW3
++
++ if(irqmask != 0xFFFF)
++   picsetmask(irqmask);
+ }
+ 
+ //PAGEBREAK!
+diff --git a/printpcs b/printpcs
+old mode 100755
+new mode 100644
+diff --git a/qemu.pcap b/qemu.pcap
+new file mode 100644
+index 0000000000000000000000000000000000000000..39309dc4f90518696abc93589c53796bbd4cb247
+GIT binary patch
+literal 162
+zcmca|c+)~A1{MYcU}Rtfa#)U-M(Zx;WzYh$LHIuy1cfjNnS^n$F)(s4u(2>OLik(^
+nO#BdeAd3m4(;leP0jLXvA!>p`L2_`NOb|Xu3}FUPF%|#-!lxTZ
+
+literal 0
+HcmV?d00001
+
+diff --git a/runoff b/runoff
+old mode 100755
+new mode 100644
+diff --git a/runoff1 b/runoff1
+old mode 100755
+new mode 100644
+diff --git a/show1 b/show1
+old mode 100755
+new mode 100644
+diff --git a/spinp b/spinp
+old mode 100755
+new mode 100644
+diff --git a/syscall.c b/syscall.c
+index ee85261..a61f048 100644
+--- a/syscall.c
++++ b/syscall.c
+@@ -103,6 +103,9 @@ extern int sys_unlink(void);
+ extern int sys_wait(void);
+ extern int sys_write(void);
+ extern int sys_uptime(void);
++extern int sys_arp(void);
++extern int sys_checknic(void);
++extern int sys_icmptest(void);
+ 
+ static int (*syscalls[])(void) = {
+ [SYS_fork]    sys_fork,
+@@ -126,6 +129,9 @@ static int (*syscalls[])(void) = {
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_arp]     sys_arp,
++[SYS_checknic] sys_checknic,
++[SYS_icmptest] sys_icmptest,
+ };
+ 
+ void
+diff --git a/syscall.h b/syscall.h
+index bc5f356..6d69b9a 100644
+--- a/syscall.h
++++ b/syscall.h
+@@ -20,3 +20,6 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++#define SYS_arp    22
++#define SYS_checknic 23
++#define SYS_icmptest 24
+\ No newline at end of file
+diff --git a/sysfile.c b/sysfile.c
+index 87e508b..1baf038 100644
+--- a/sysfile.c
++++ b/sysfile.c
+@@ -3,6 +3,7 @@
+ // Mostly argument checking, since we don't trust
+ // user code, and calls into file.c and fs.c.
+ //
++#include "e1000.h"
+ 
+ #include "types.h"
+ #include "defs.h"
+@@ -15,6 +16,8 @@
+ #include "sleeplock.h"
+ #include "file.h"
+ #include "fcntl.h"
++#include "x86.h"
++#include "memlayout.h"
+ 
+ // Fetch the nth word-sized system call argument as a file descriptor
+ // and return both the descriptor and the corresponding struct file.
+@@ -443,3 +446,233 @@ sys_pipe(void)
+   fd[1] = fd1;
+   return 0;
+ }
++
++
++uint16_t calc_checksum(uint16_t* buffer, int size)
++{
++    unsigned long cksum = 0;
++    while(size>1)
++    {
++        cksum += *buffer++;
++        --size;
++    }
++//    if(size)
++//    {
++//        cksum += *(UCHAR*)buffer;
++//    }
++    cksum = (cksum>>16) + (cksum&0xffff);
++    cksum += (cksum>>16);
++    return (uint16_t)(~cksum);
++}
++
++uint32_t getIP(char* sIP)
++{
++    int i=0;
++    uint32_t v1=0,v2=0,v3=0,v4=0;
++    cprintf(sIP);
++    cprintf("\n");
++    cprintf("%d\n",sIP[9]);
++    for(i=0;sIP[i]!='\0';++i);
++    for(i=0;sIP[i]!='.';++i)
++        v1=v1*10+sIP[i]-'0';
++    for(++i;sIP[i]!='.';++i)
++        v2=v2*10+sIP[i]-'0';
++    for(++i;sIP[i]!='.';++i)
++        v3=v3*10+sIP[i]-'0';
++    for(++i;sIP[i]!='\0';++i)
++        v4=v4*10+sIP[i]-'0';
++    return (v1<<24)+(v2<<16)+(v3<<8)+v4;
++}
++
++static uint8_t fillbuf(uint8_t* buf, uint8_t k, uint64_t num, uint8_t len)
++{
++    static uint8_t mask = -1;
++    for(short j = len - 1; j >= 0; --j)
++    {
++        buf[k++] = (num >> (j << 3)) & mask;
++    }
++    return k;
++}
++
++
++int send_icmpRequest(char* interface,char* tarips,uint8_t type,uint8_t code)
++{
++    static uint16_t id=1;
++
++    uint8_t* buffer=(uint8_t*)kalloc();
++    uint8_t posiphdrcks;
++    uint8_t posicmphdrcks;
++    uint8_t pos=0;
++    //mac header
++    uint64_t tarmac=0x52550a000202l;
++    uint64_t srcmac=0x525400123456l;
++    uint16_t macprotocal=0x0800;
++
++    pos=fillbuf(buffer,pos,tarmac,6);
++    pos=fillbuf(buffer,pos,srcmac,6);
++    pos=fillbuf(buffer,pos,macprotocal,2);
++
++    //ip header
++    uint16_t vrs=4;
++    uint16_t IHL=5;
++    uint16_t TOS=0;
++    uint16_t TOL=28;
++    uint16_t ID=id++;
++    uint16_t flag=0;
++    uint16_t offset=0;
++    uint16_t TTL=32;
++    uint16_t protocal=1; //ICMP
++
++    uint8_t* piphdr=&buffer[pos];
++    pos=fillbuf(buffer,pos,(vrs<<4)+IHL,1);
++    pos=fillbuf(buffer,pos,TOS,1);
++    pos=fillbuf(buffer,pos,TOL,2);
++    pos=fillbuf(buffer,pos,ID,2);
++    pos=fillbuf(buffer,pos,(flag<<13)+offset,2);
++    pos=fillbuf(buffer,pos,TTL,1);
++    pos=fillbuf(buffer,pos,protocal,1);
++
++    uint16_t cksum=0;//calc_checksum((uint16_t*)piphdr,5);
++
++    uint32_t srcip=getIP("10.0.2.15");
++
++    uint32_t tarip=getIP(tarips);
++    posiphdrcks=pos;
++    pos=fillbuf(buffer,pos,cksum,2);
++    pos=fillbuf(buffer,pos,srcip,4);
++    pos=fillbuf(buffer,pos,tarip,4);
++
++    uint8_t * picmphdr=&buffer[pos];
++    //icmp header
++    uint16_t icmptype=type;
++    uint16_t icmpcode=code;
++    pos=fillbuf(buffer,pos,icmptype,1);
++    pos=fillbuf(buffer,pos,icmpcode,1);
++    uint16_t icmpcksum=0;//calc_checksum((uint16_t*)picmphdr,1);
++    uint16_t icmpflag=1108;
++    uint16_t icmpseq=921;
++    posicmphdrcks=pos;
++    pos=fillbuf(buffer,pos,icmpcksum,2);
++    pos=fillbuf(buffer,pos,icmpflag,2);
++    pos=fillbuf(buffer,pos,icmpseq,2);
++
++    cksum=calc_checksum((uint16_t*)piphdr,10);
++    icmpcksum=calc_checksum((uint16_t*)picmphdr,4);
++
++    fillbuf(buffer,posiphdrcks,cksum,2);
++    fillbuf(buffer,posicmphdrcks,icmpcksum,2);
++
++    struct nic_device *nd;
++    if(get_device(interface, &nd) < 0) {
++        cprintf("ERROR:send_arpRequest:Device not loaded\n");
++        return -1;
++    }
++    nd->send_packet(nd->driver, (uint8_t*)buffer, pos); //sizeof(eth)-2 to remove padding. padding was necessary for alignment.
++
++
++    return 0;
++}
++
++int
++sys_icmptest(void)
++{
++    if(send_icmpRequest("mynet0", "10.0.2.2", 8, 0) < 0)
++    {
++        cprintf("ERROR:send request fails");
++        return -1;
++    }
++    return 0;
++}
++
++int
++sys_arp(void)
++{
++  char *ipAddr, *interface, *arpResp;
++  int size;
++
++  if(argstr(0, &interface) < 0 || argstr(1, &ipAddr) < 0 || argint(3, &size) < 0 || argptr(2, &arpResp, size) < 0) {
++    cprintf("ERROR:sys_createARP:Failed to fetch arguments");
++    return -1;
++  }
++
++  if(send_arpRequest(interface, ipAddr, arpResp) < 0) {
++    cprintf("ERROR:sys_createARP:Failed to send ARP Request for IP:%s", ipAddr);
++    return -1;
++  }
++
++    struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
++    uint8_t* p=(uint8_t*)kalloc();
++    uint8_t* pp=p;
++    uint16_t length=0;
++    uint16_t cnt=0;
++    while(1)
++    {
++        if(cnt==0xffff)
++        {
++            cprintf("no reply\n");
++            break;
++        }
++        ++cnt;
++
++        uint8_t mask=15;
++        e1000_recv(e1000p,p,&length);
++        if(length!=0)
++        {
++            cprintf("Receive packet:\n");
++            for(int i=0;i<length;++i)
++            {
++                if(i % 12==0 && i) cprintf("\n");
++                cprintf("%x%x ",((*p)>>4)&mask,(*p)&mask);
++                ++p;
++            }
++            cprintf("\n\n");
++            cprintf("ip %d.%d.%d.%d is at %x:%x:%x:%x:%x:%x\n",pp[28],pp[29],pp[30],pp[31],pp[22],pp[23],pp[24],pp[25],pp[26],pp[27]);
++            break;
++        }
++    }
++  return 0;
++
++}
++
++
++static uint32_t e1000_reg_read(uint32_t reg_addr, struct e1000 *the_e1000)
++{
++    uint32_t value = *(uint32_t*)(the_e1000->membase + reg_addr);
++    return value;
++}
++
++int
++sys_checknic(void)
++{
++  int HEAD;
++  int TAIL;
++
++  if(argint(0,&HEAD)<0 || argint(1,&TAIL)<0)
++  {
++    cprintf("Error: invalid parameter");
++    return -1;
++  }
++  struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
++    uint32_t head = e1000_reg_read(E1000_RDH,e1000p);
++    uint32_t tail = e1000_reg_read(E1000_RDT,e1000p);
++
++    cprintf("HEAD: %x , TAIL: %x\n",head,tail);
++
++    uint8_t* p=(uint8_t*)kalloc();
++  uint16_t length=0;
++  {
++    uint8_t mask=15;
++    e1000_recv(e1000p,p,&length);
++    if(length!=0)
++    {
++      for(int i=0;i<length;++i)
++      {
++        cprintf("%x%x ",((*p)>>4)&mask,(*p)&mask);
++        ++p;
++      }
++      cprintf("\n");
++    }
++  }
++
++  return 0;
++}
+\ No newline at end of file
+diff --git a/trap.c b/trap.c
+index 41c66eb..35bdfda 100644
+--- a/trap.c
++++ b/trap.c
+@@ -7,6 +7,7 @@
+ #include "x86.h"
+ #include "traps.h"
+ #include "spinlock.h"
++#include "e1000.h"
+ 
+ // Interrupt descriptor table (shared by all CPUs).
+ struct gatedesc idt[256];
+@@ -71,6 +72,13 @@ trap(struct trapframe *tf)
+     uartintr();
+     lapiceoi();
+     break;
++
++  case T_IRQ0 + IRQ_ETH:
++    cprintf("NIC Interrupted!\n");
++    //e100_intr();
++    lapiceoi();
++    break;
++  
+   case T_IRQ0 + 7:
+   case T_IRQ0 + IRQ_SPURIOUS:
+     cprintf("cpu%d: spurious interrupt at %x:%x\n",
+diff --git a/traps.h b/traps.h
+index 0bd1fd8..3321f26 100644
+--- a/traps.h
++++ b/traps.h
+@@ -32,6 +32,7 @@
+ #define IRQ_TIMER        0
+ #define IRQ_KBD          1
+ #define IRQ_COM1         4
++#define IRQ_ETH         11
+ #define IRQ_IDE         14
+ #define IRQ_ERROR       19
+ #define IRQ_SPURIOUS    31
+diff --git a/types.h b/types.h
+index e4adf64..cf26bad 100644
+--- a/types.h
++++ b/types.h
+@@ -1,4 +1,13 @@
++#ifndef _TYPES_H_
++#define _TYPES_H_
++
+ typedef unsigned int   uint;
++typedef uint uint32_t;
+ typedef unsigned short ushort;
+ typedef unsigned char  uchar;
++typedef uchar uint8_t;
+ typedef uint pde_t;
++typedef ushort uint16_t;
++typedef unsigned long long uint64_t;
++
++#endif
+\ No newline at end of file
+diff --git a/user.h b/user.h
+index f45b8d5..22c3baa 100644
+--- a/user.h
++++ b/user.h
+@@ -1,3 +1,8 @@
++#ifndef _USER_H_
++#define _USER_H_
++
++#include "util.h"
++
+ struct stat;
+ struct rtcdate;
+ 
+@@ -23,6 +28,9 @@ int getpid(void);
+ char* sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int arp(char*, char*, char*, int);
++int checknic(int,int);
++int icmptest(int,int);
+ 
+ // ulib.c
+ int stat(char*, struct stat*);
+@@ -37,3 +45,5 @@ void* memset(void*, int, uint);
+ void* malloc(uint);
+ void free(void*);
+ int atoi(const char*);
++
++#endif
+\ No newline at end of file
+diff --git a/usys.S b/usys.S
+index 8bfd8a1..5831d54 100644
+--- a/usys.S
++++ b/usys.S
+@@ -29,3 +29,6 @@ SYSCALL(getpid)
+ SYSCALL(sbrk)
+ SYSCALL(sleep)
+ SYSCALL(uptime)
++SYSCALL(arp)
++SYSCALL(checknic)
++SYSCALL(icmptest)
+diff --git a/util.c b/util.c
+new file mode 100644
+index 0000000..2a73291
+--- /dev/null
++++ b/util.c
+@@ -0,0 +1,27 @@
++/**
++ *author: Anmol Vatsa<anvatsa@cs.utah.edu>
++ *common utilities in user and kernel space
++ *mostly taken from ulib
++ */
++#include "types.h"
++#include "util.h"
++
++int
++util_atoi(const char *s)
++{
++  int n;
++
++  n = 0;
++  while('0' <= *s && *s <= '9')
++    n = n*10 + *s++ - '0';
++  return n;
++}
++
++
++int
++util_strcmp(const char *p, const char *q)
++{
++  while(*p && *p == *q)
++    p++, q++;
++  return (uchar)*p - (uchar)*q;
++}
+diff --git a/util.h b/util.h
+new file mode 100644
+index 0000000..3788b4a
+--- /dev/null
++++ b/util.h
+@@ -0,0 +1,12 @@
++#ifndef __XV6_NETSTACK_UTIL_H__
++#define __XV6_NETSTACK_UTIL_H__
++/**
++ *author: Anmol Vatsa<anvatsa@cs.utah.edu>
++ *
++ *common utilities in user and kernel space
++ */
++
++int util_atoi(const char*);
++int util_strcmp(const char*, const char*);
++
++#endif
+diff --git a/x86.h b/x86.h
+index 07312a5..e53c9a8 100644
+--- a/x86.h
++++ b/x86.h
+@@ -1,5 +1,13 @@
+ // Routines to let C code use special x86 instructions.
+ 
++static inline uint16_t
++inw(int port)
++{
++  uint16_t data;
++  asm volatile("inw %w1,%0" : "=a" (data) : "d" (port));
++  return data;
++}
++
+ static inline uchar
+ inb(ushort port)
+ {
+@@ -9,6 +17,14 @@ inb(ushort port)
+   return data;
+ }
+ 
++static inline uint32_t
++inl(int port)
++{
++	uint32_t data;
++	asm volatile("inl %w1,%0" : "=a" (data) : "d" (port));
++	return data;
++}
++
+ static inline void
+ insl(int port, void *addr, int cnt)
+ {
+@@ -31,6 +47,13 @@ outw(ushort port, ushort data)
+ }
+ 
+ static inline void
++outl(int port, uint32_t data)
++{
++	asm volatile("outl %0,%w1" : : "a" (data), "d" (port));
++}
++
++
++static inline void
+ outsl(int port, const void *addr, int cnt)
+ {
+   asm volatile("cld; rep outsl" :
+-- 
+2.7.4
+
