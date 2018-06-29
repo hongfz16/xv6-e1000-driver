@@ -31,21 +31,21 @@
 			
 			```C
 			struct e1000 {
- 				struct e1000_tbd *tbd[E1000_TBD_SLOTS];
- 				struct e1000_rbd *rbd[E1000_RBD_SLOTS];
-    			struct packet_buf *tx_buf[E1000_TBD_SLOTS];  //packet buffer space for tbd
-    			struct packet_buf *rx_buf[E1000_RBD_SLOTS];  //packet buffer space for rbd
-			    int tbd_head;
-			 	int tbd_tail;
-			 	char tbd_idle;
-			 	int rbd_head;
-			 	int rbd_tail;
-			 	char rbd_idle;
-			    uint32_t iobase;
-			    uint32_t membase;
-			    uint8_t irq_line;
-			    uint8_t irq_pin;
-			    uint8_t mac_addr[6];
+				struct e1000_tbd *tbd[E1000_TBD_SLOTS];
+				struct e1000_rbd *rbd[E1000_RBD_SLOTS];
+				struct packet_buf *tx_buf[E1000_TBD_SLOTS];  //packet buffer space for tbd
+				struct packet_buf *rx_buf[E1000_RBD_SLOTS];  //packet buffer space for rbd
+				int tbd_head;
+				int tbd_tail;
+				char tbd_idle;
+				int rbd_head;
+				int rbd_tail;
+				char rbd_idle;
+				uint32_t iobase;
+				uint32_t membase;
+				uint8_t irq_line;
+				uint8_t irq_pin;
+				uint8_t mac_addr[6];
 			};
 			```
 
