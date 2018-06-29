@@ -30,33 +30,26 @@
 		- 首先分配网卡结构体的空间，结构体定义如下：
 			
 			```C
-			struct tx_desc
-			{
-			   	uint64_t addr;
-			   	uint16_t length;
-			   	uint8_t cso;
-			  	uint8_t cmd;
-			   	uint8_t status;
-			   	uint8_t css;
-			   	uint16_t special;
-			}; // Transmit descriptor
-		
-			struct rx_desc
-			{
-			   	uint64_t addr;
-			   	uint16_t length;
-			   	uint16_t checksum;
-			   	uint8_t status;
-			   	uint8_t errors;
-			   	uint16_t special;
-			}; // Receive descriptor
-		
-			volatile uint32_t *e1000; // Pointer to e1000 device
-			struct tx_desc tx_desc_table[NTXDESC]; // Transmit ring
-			struct rx_desc rx_desc_table[NRXDESC]; // Receive ring
-			volatile uint32_t *tdt; // Pointer to tail of transmit ring
-			volatile uint32_t *rdt; // Pointer to tail of receive ring
+			struct e1000 {
+ 				struct e1000_tbd *tbd[E1000_TBD_SLOTS];
+ 				struct e1000_rbd *rbd[E1000_RBD_SLOTS];
+    			struct packet_buf *tx_buf[E1000_TBD_SLOTS];  //packet buffer space for tbd
+    			struct packet_buf *rx_buf[E1000_RBD_SLOTS];  //packet buffer space for rbd
+			    int tbd_head;
+			 	int tbd_tail;
+			 	char tbd_idle;
+			 	int rbd_head;
+			 	int rbd_tail;
+			 	char rbd_idle;
+			    uint32_t iobase;
+			    uint32_t membase;
+			    uint8_t irq_line;
+			    uint8_t irq_pin;
+			    uint8_t mac_addr[6];
+			};
 			```
+
+
 		- 将`Transmit Ring`中变量初始化：
 		- 为`Receive ring`上每一个描述符中的网络包的buffer分配空间
 		- 初始化与发包相关的寄存器
