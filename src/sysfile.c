@@ -447,6 +447,143 @@ sys_pipe(void)
   return 0;
 }
 
+
+uint16_t calc_checksum(uint16_t* buffer, int size)
+{
+    unsigned long cksum = 0;
+    while(size>1)
+    {
+        cksum += *buffer++;
+        --size;
+    }
+//    if(size)
+//    {
+//        cksum += *(UCHAR*)buffer;
+//    }
+    cksum = (cksum>>16) + (cksum&0xffff);
+    cksum += (cksum>>16);
+    return (uint16_t)(~cksum);
+}
+
+uint32_t getIP(char* sIP)
+{
+    int i=0;
+    uint32_t v1=0,v2=0,v3=0,v4=0;
+    cprintf(sIP);
+    cprintf("\n");
+    cprintf("%d\n",sIP[9]);
+    for(i=0;sIP[i]!='\0';++i);
+    for(i=0;sIP[i]!='.';++i)
+        v1=v1*10+sIP[i]-'0';
+    for(++i;sIP[i]!='.';++i)
+        v2=v2*10+sIP[i]-'0';
+    for(++i;sIP[i]!='.';++i)
+        v3=v3*10+sIP[i]-'0';
+    for(++i;sIP[i]!='\0';++i)
+        v4=v4*10+sIP[i]-'0';
+    return (v1<<24)+(v2<<16)+(v3<<8)+v4;
+}
+
+static uint8_t fillbuf(uint8_t* buf, uint8_t k, uint64_t num, uint8_t len)
+{
+    static uint8_t mask = -1;
+    for(short j = len - 1; j >= 0; --j)
+    {
+        buf[k++] = (num >> (j << 3)) & mask;
+    }
+    return k;
+}
+
+
+int send_icmpRequest(char* interface,char* tarips,uint8_t type,uint8_t code)
+{
+    static uint16_t id=1;
+
+    uint8_t* buffer=(uint8_t*)kalloc();
+    uint8_t posiphdrcks;
+    uint8_t posicmphdrcks;
+    uint8_t pos=0;
+    //mac header
+    uint64_t tarmac=0x52550a000202l;
+    uint64_t srcmac=0x525400123456l;
+    uint16_t macprotocal=0x0800;
+
+    pos=fillbuf(buffer,pos,tarmac,6);
+    pos=fillbuf(buffer,pos,srcmac,6);
+    pos=fillbuf(buffer,pos,macprotocal,2);
+
+    //ip header
+    uint16_t vrs=4;
+    uint16_t IHL=5;
+    uint16_t TOS=0;
+    uint16_t TOL=28;
+    uint16_t ID=id++;
+    uint16_t flag=0;
+    uint16_t offset=0;
+    uint16_t TTL=32;
+    uint16_t protocal=1; //ICMP
+
+    uint8_t* piphdr=&buffer[pos];
+    pos=fillbuf(buffer,pos,(vrs<<4)+IHL,1);
+    pos=fillbuf(buffer,pos,TOS,1);
+    pos=fillbuf(buffer,pos,TOL,2);
+    pos=fillbuf(buffer,pos,ID,2);
+    pos=fillbuf(buffer,pos,(flag<<13)+offset,2);
+    pos=fillbuf(buffer,pos,TTL,1);
+    pos=fillbuf(buffer,pos,protocal,1);
+
+    uint16_t cksum=0;//calc_checksum((uint16_t*)piphdr,5);
+
+    uint32_t srcip=getIP("10.0.2.15");
+
+    uint32_t tarip=getIP(tarips);
+    posiphdrcks=pos;
+    pos=fillbuf(buffer,pos,cksum,2);
+    pos=fillbuf(buffer,pos,srcip,4);
+    pos=fillbuf(buffer,pos,tarip,4);
+
+    uint8_t * picmphdr=&buffer[pos];
+    //icmp header
+    uint16_t icmptype=type;
+    uint16_t icmpcode=code;
+    pos=fillbuf(buffer,pos,icmptype,1);
+    pos=fillbuf(buffer,pos,icmpcode,1);
+    uint16_t icmpcksum=0;//calc_checksum((uint16_t*)picmphdr,1);
+    uint16_t icmpflag=1108;
+    uint16_t icmpseq=921;
+    posicmphdrcks=pos;
+    pos=fillbuf(buffer,pos,icmpcksum,2);
+    pos=fillbuf(buffer,pos,icmpflag,2);
+    pos=fillbuf(buffer,pos,icmpseq,2);
+
+    cksum=calc_checksum((uint16_t*)piphdr,10);
+    icmpcksum=calc_checksum((uint16_t*)picmphdr,4);
+
+    fillbuf(buffer,posiphdrcks,cksum,2);
+    fillbuf(buffer,posicmphdrcks,icmpcksum,2);
+
+    struct nic_device *nd;
+    if(get_device(interface, &nd) < 0) {
+        cprintf("ERROR:send_arpRequest:Device not loaded\n");
+        return -1;
+    }
+    nd->send_packet(nd->driver, (uint8_t*)buffer, pos); //sizeof(eth)-2 to remove padding. padding was necessary for alignment.
+
+
+    return 0;
+}
+
+int
+sys_icmptest(void)
+{
+    if(send_icmpRequest("mynet0", "10.0.2.2", 8, 0) < 0)
+    {
+        cprintf("ERROR:send request fails");
+        return -1;
+    }
+    return 0;
+}
+
 int
 sys_arp(void)
 {
@@ -463,7 +600,45 @@ sys_arp(void)
     return -1;
   }
 
+    struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
+    uint8_t* p=(uint8_t*)kalloc();
+    uint8_t* pp=p;
+    uint16_t length=0;
+    uint16_t cnt=0;
+    while(1)
+    {
+        if(cnt==0xffff)
+        {
+            cprintf("no reply\n");
+            break;
+        }
+        ++cnt;
+
+        uint8_t mask=15;
+        e1000_recv(e1000p,p,&length);
+        if(length!=0)
+        {
+            cprintf("Receive packet:\n");
+            for(int i=0;i<length;++i)
+            {
+                if(i % 12==0 && i) cprintf("\n");
+                cprintf("%x%x ",((*p)>>4)&mask,(*p)&mask);
+                ++p;
+            }
+            cprintf("\n\n");
+            cprintf("ip %d.%d.%d.%d is at %x:%x:%x:%x:%x:%x\n",pp[28],pp[29],pp[30],pp[31],pp[22],pp[23],pp[24],pp[25],pp[26],pp[27]);
+            break;
+        }
+    }
   return 0;
+
+}
+
+
+static uint32_t e1000_reg_read(uint32_t reg_addr, struct e1000 *the_e1000)
+{
+    uint32_t value = *(uint32_t*)(the_e1000->membase + reg_addr);
+    return value;
 }
 
 int
@@ -478,20 +653,26 @@ sys_checknic(void)
     return -1;
   }
   struct e1000* e1000p=(struct e1000*)nic_devices[0].driver;
-  uint8_t* p=(uint8_t*)kalloc();
+    uint32_t head = e1000_reg_read(E1000_RDH,e1000p);
+    uint32_t tail = e1000_reg_read(E1000_RDT,e1000p);
+
+    cprintf("HEAD: %x , TAIL: %x\n",head,tail);
+
+    uint8_t* p=(uint8_t*)kalloc();
   uint16_t length=0;
-  while(1)
   {
+    uint8_t mask=15;
     e1000_recv(e1000p,p,&length);
     if(length!=0)
     {
       for(int i=0;i<length;++i)
       {
-        cprintf("%x",*p);
+        cprintf("%x%x ",((*p)>>4)&mask,(*p)&mask);
         ++p;
       }
       cprintf("\n");
     }
   }
+
   return 0;
 }

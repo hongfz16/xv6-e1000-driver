@@ -3,6 +3,12 @@
 
 #include "types.h"
 
+// // Since PCI bus addresses have 8-bit for PCI bus,
+// // 5-bit for device , and 3-bit for function numbers for the device
+// // So a total of 2^5 devices per bus
+// #define MAX_DEVICE_PER_PCI_BUS 32
+
+
 enum { pci_res_bus, pci_res_mem, pci_res_io, pci_res_max };
 
 struct pci_bus;

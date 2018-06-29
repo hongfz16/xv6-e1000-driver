@@ -1,9 +1,5 @@
 #ifndef __XV6_NETSTACK_ARP_FRAME_H__
 #define __XV6_NETSTACK_ARP_FRAME_H__
-/**
- *edit1: Anmol Vatsa<anvatsa@cs.utah.edu>
- *take stuff from the c file and put it here for includes
- */
 
 struct ethr_hdr {
 	uint8_t dmac[6];
