@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_arp    22
 #define SYS_checknic 23
+#define SYS_icmptest 24

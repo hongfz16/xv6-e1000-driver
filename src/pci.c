@@ -5,18 +5,36 @@
 #include "e1000.h"
 #include "nic.h"
 
+typedef unsigned char uint8;
+typedef unsigned long long uint64;
+
+uint8 fillbuf(uint8* buf, uint8 k, uint64 num, uint8 len)
+{
+	static uint8 mask = -1;
+	for(short j = len - 1; j >= 0; --j)
+	{
+		buf[k++] = (num >> (j << 3)) & mask;
+	}
+	return k;
+}
+
 static int e1000_attach(struct pci_func *pcif) {
 	pci_func_enable(pcif);
 	struct nic_device nd;
+
+	fillbuf(nd.mac_addr,0,0x563412005452l,6);
+
 	e1000_init(pcif, &nd.driver, nd.mac_addr);
 	nd.send_packet = e1000_send;
 	nd.recv_packet = e1000_recv;
 	register_device(nd);
-  	return 0;
+  return 0;
 }
+
 
 // Flag to do "lspci" at bootup
 static int pci_show_devs = 1;
+static int pci_show_addrs = 0;
 
 // PCI "configuration mechanism one"
 static uint32_t pci_conf1_addr_ioport = 0x0cf8;
@@ -52,6 +70,12 @@ pci_conf1_set_addr(uint32_t bus,
 		   uint32_t func,
 		   uint32_t offset)
 {
+	// assert(bus < 256);
+	// assert(dev < 32);
+	// assert(func < 8);
+	// assert(offset < 256);
+	// assert((offset & 0x3) == 0);
+
 	uint32_t v = (1 << 31) |		// config-space
 		(bus << 16) | (dev << 11) | (func << 8) | (offset);
 	outl(pci_conf1_addr_ioport, v);
@@ -75,7 +99,7 @@ static int __attribute__((warn_unused_result))
 pci_attach_match(uint32_t key1, uint32_t key2,
 		 struct pci_driver *list, struct pci_func *pcif)
 {
-	uint32_t i=0;
+	uint32_t i;
 
 	for (i = 0; list[i].attachfn; i++) {
 		if (list[i].key1 == key1 && list[i].key2 == key2) {
@@ -218,18 +242,21 @@ pci_func_enable(struct pci_func *f)
 
 		int regnum = PCI_MAPREG_NUM(bar);
 		uint32_t base, size;
-		if (PCI_MAPREG_TYPE(rv) == PCI_MAPREG_TYPE_MEM)
-		{
+		if (PCI_MAPREG_TYPE(rv) == PCI_MAPREG_TYPE_MEM) {
 			if (PCI_MAPREG_MEM_TYPE(rv) == PCI_MAPREG_MEM_TYPE_64BIT)
 				bar_width = 8;
 
 			size = PCI_MAPREG_MEM_SIZE(rv);
 			base = PCI_MAPREG_MEM_ADDR(oldv);
-		}
-		else
-		{
+			if (pci_show_addrs)
+				cprintf("  mem region %d: %d bytes at 0x%x\n",
+					regnum, size, base);
+		} else {
 			size = PCI_MAPREG_IO_SIZE(rv);
 			base = PCI_MAPREG_IO_ADDR(oldv);
+			if (pci_show_addrs)
+				cprintf("  io region %d: %d bytes at 0x%x\n",
+					regnum, size, base);
 		}
 
 		pci_conf_write(f, bar, oldv);

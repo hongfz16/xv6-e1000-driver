@@ -30,6 +30,7 @@ int sleep(int);
 int uptime(void);
 int arp(char*, char*, char*, int);
 int checknic(int,int);
+int icmptest(int,int);
 
 // ulib.c
 int stat(char*, struct stat*);

@@ -1,11 +1,3 @@
-/**
- *author: Vinod Reddy
- *helper functions to create ARP request and Reply frames and Ethernet frames
- *
- *Edit1:
- *author: Anmol Vatsa<anvatsa@cs.utah.edu>
- */
-
 #include "types.h"
 #include "util.h"
 #include "defs.h"
@@ -103,8 +95,8 @@ int create_eth_arp_frame(uint8_t* smac, char* ipAddr, struct ethr_hdr *eth) {
 	memmove(eth->arp_smac, smac, 6);
 	pack_mac(eth->arp_dmac, dmac); //this can potentially be igored for the request
 
-	eth->sip = get_ip("10.0.2.2", strlen("10.0.2.2"));
-
+//	eth->sip = get_ip("10.0.2.2", strlen("10.0.2.2"));
+	eth->sip = get_ip("10.0.2.15", strlen("10.0.2.15"));
 	*(uint32_t*)(&eth->dip) = get_ip(ipAddr, strlen(ipAddr));
 
 	return 0;

@@ -1,0 +1,7 @@
+tcpdump -XXnr qemu.pcap
+
+
+uint8 %x
+xx
+0a
+0123 %d 123
