@@ -78,12 +78,20 @@
 	- 完整的arp数据包由以太网报头和数据构成
 	- 完整的icmp数据包由以太网报头+ip报头+icmp数据构成
 	- arp数据的结构如下
+
+
 	![arpframe](./arpframe.png)
 	- icmp数据的结构如下
+	
+
 	![icmpframe](./icmp.png)
 	- 以太网报头的结构如下
+	
+
 	![etnhdr](./etnhdr.png)
 	- ip报头的结构如下
+	
+
 	![iphdr](./iphdr.png)
 
 ## 问题及解决方法
